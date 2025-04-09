@@ -61,23 +61,19 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
       final notifier = ref.read(authProvider.notifier);
       final authState = ref.read(authProvider);
 
-      if (authState.profileImage == null || authState.profileImage!.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Por favor, selecione uma imagem de perfil"),
-          ),
-        );
-        return;
-      }
-
       notifier.setLoading(true); // Ativa loading
 
-      final File profileImageFile = File(authState.profileImage!);
+      // Cria arquivo apenas se tiver imagem selecionada
+      File? profileImageFile;
+      if (authState.profileImage != null && authState.profileImage!.isNotEmpty) {
+        profileImageFile = File(authState.profileImage!);
+      }
+
       final user = await AuthService().registerUser(
         name: authState.name,
         email: authState.email,
         password: authState.password,
-        profileImage: profileImageFile,
+        profileImage: profileImageFile, // Pode ser null agora
       );
 
       notifier.setLoading(false); // Desativa loading
@@ -90,9 +86,11 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
           );
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Erro ao cadastrar usuário")),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Erro ao cadastrar usuário")),
+          );
+        }
       }
     }
   }
