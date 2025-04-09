@@ -10,43 +10,49 @@ class AuthService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   Future<AppUser?> registerUser({
-    required String name,
-    required String email,
-    required String password,
-    required File profileImage,
-  }) async {
-    try {
-      // 1. Cria o usuário com email/senha
-      UserCredential userCred = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+  required String name,
+  required String email,
+  required String password,
+  File? profileImage, // Tornamos opcional
+}) async {
+  try {
+    // 1. Cria o usuário com email/senha
+    UserCredential userCred = await _auth.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
 
-      final uid = userCred.user!.uid;
+    final uid = userCred.user!.uid;
+    String imageUrl;
 
-      // 2. Faz o upload da imagem de perfil
-      final imageUrl = await FirebaseStorageService.uploadProfileImage(
+    // 2. Se não tiver imagem, usa a placeholder
+    if (profileImage == null) {
+      imageUrl = 'assets/icons/auth_image.png'; // Caminho da sua imagem placeholder
+    } else {
+      // Faz upload apenas se tiver imagem
+      imageUrl = await FirebaseStorageService.uploadProfileImage(
         uid,
-        profileImage,
+        imageFile: profileImage,
       );
-
-      // 3. Cria o objeto AppUser
-      final user = AppUser(
-        uid: uid,
-        name: name,
-        email: email,
-        profileImageUrl: imageUrl,
-      );
-
-      // 4. Salva no Firestore
-      await _firestore.collection('users').doc(uid).set(user.toMap());
-
-      return user;
-    } catch (e) {
-      print("Erro no registro: $e");
-      return null;
     }
+
+    // 3. Cria o objeto AppUser
+    final user = AppUser(
+      uid: uid,
+      name: name,
+      email: email,
+      profileImageUrl: imageUrl,
+    );
+
+    // 4. Salva no Firestore
+    await _firestore.collection('users').doc(uid).set(user.toMap());
+
+    return user;
+  } catch (e) {
+    print("Erro no registro: $e");
+    return null;
   }
+}
 
   Future<AppUser?> loginUser({
     required String email,
