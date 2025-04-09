@@ -159,11 +159,11 @@ class _HomeViewState extends State<HomeView> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        if (user.email != null && user.email!.isNotEmpty)
+        if (user.email.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
-              user.email!,
+              user.email,
               style: TextStyle(
                 color: AppColors.white.withOpacity(0.7),
                 fontSize: 16,
@@ -183,8 +183,8 @@ class _HomeViewState extends State<HomeView> {
         child: Column(
           children: [
             _buildInfoTile(Icons.person, "Nome completo", user.name),
-            if (user.email != null && user.email!.isNotEmpty)
-              _buildInfoTile(Icons.email, "E-mail", user.email!),
+            if (user.email.isNotEmpty)
+              _buildInfoTile(Icons.email, "E-mail", user.email),
             // Adicione mais campos do usuário conforme necessário
             // Exemplo:
             // if (user.phone != null) _buildInfoTile(Icons.phone, "Telefone", user.phone!),
