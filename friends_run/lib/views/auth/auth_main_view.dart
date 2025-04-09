@@ -57,6 +57,20 @@ class AuthMainView extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
+            // Divisor
+            const DividerWithText(text: "OU"),
+            const SizedBox(height: 20),
+
+            // Botão de Login Social (Google)
+            SocialLoginButton(
+              text: "Entrar com Google",
+              iconPath: 'assets/icons/google.png',
+              onPressed: () {
+                // Implementar login com Google
+              },
+            ),
+            const SizedBox(height: 10),
+
             // Botão de Login com Email
             TextButton(
               onPressed: () {

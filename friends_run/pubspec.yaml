@@ -37,6 +37,9 @@ dependencies:
   hooks_riverpod: ^2.6.1
   image_picker: ^1.0.7
   connectivity_plus: ^5.0.1
+  cloud_firestore: ^5.6.6
+  firebase_auth: ^5.5.2
+  firebase_storage: ^12.4.5
 
 dev_dependencies:
   flutter_test:

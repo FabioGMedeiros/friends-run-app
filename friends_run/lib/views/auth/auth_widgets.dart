@@ -40,6 +40,42 @@ class PrimaryButton extends StatelessWidget {
   }
 }
 
+/// Botão para login social (exemplo: Google)
+class SocialLoginButton extends StatelessWidget {
+  final String text;
+  final String iconPath;
+  final VoidCallback onPressed;
+
+  const SocialLoginButton({
+    super.key,
+    required this.text,
+    required this.iconPath,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.white,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+        icon: Image.asset(iconPath, height: 24),
+        label: Text(
+          text,
+          style: const TextStyle(fontSize: 18, color: AppColors.black),
+        ),
+      ),
+    );
+  }
+}
+
 /// Divisor com texto no meio
 class DividerWithText extends StatelessWidget {
   final String text;
