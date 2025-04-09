@@ -1,30 +1,55 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:friends_run/core/services/auth_service.dart';
 import 'package:friends_run/core/utils/colors.dart';
 import 'package:friends_run/core/utils/validationsUtils.dart';
+import 'package:friends_run/views/home/home_view.dart';
+import 'package:friends_run/core/providers/auth_provider.dart';
 import 'auth_widgets.dart';
 
-class LoginView extends StatefulWidget {
+class LoginView extends ConsumerStatefulWidget {
   const LoginView({super.key});
 
   @override
   _LoginViewState createState() => _LoginViewState();
 }
 
-class _LoginViewState extends State<LoginView> {
+class _LoginViewState extends ConsumerState<LoginView> {
   final _formKey = GlobalKey<FormState>();
-
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  void _login() {
+  void _login() async {
     if (_formKey.currentState!.validate()) {
-      // Chamar a API de autenticação de usuário
-      print("Login realizado com sucesso!");
+      final email = _emailController.text.trim();
+      final password = _passwordController.text.trim();
+
+      ref.read(authProvider.notifier).setLoading(true);
+
+      final user = await AuthService().loginUser(
+        email: email,
+        password: password,
+      );
+
+      ref.read(authProvider.notifier).setLoading(false);
+
+      if (user != null) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeView()),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Email ou senha inválidos')),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -47,7 +72,6 @@ class _LoginViewState extends State<LoginView> {
             children: [
               const SizedBox(height: 40),
 
-              // Campo Email
               AuthTextField(
                 controller: _emailController,
                 label: "Email",
@@ -55,7 +79,6 @@ class _LoginViewState extends State<LoginView> {
               ),
               const SizedBox(height: 15),
 
-              // Campo Senha
               AuthTextField(
                 controller: _passwordController,
                 label: "Senha",
@@ -64,12 +87,38 @@ class _LoginViewState extends State<LoginView> {
               ),
               const SizedBox(height: 30),
 
-              // Botão Login
-              PrimaryButton(
-                text: "Entrar",
-                onPressed: _login,
-              ),
+              authState.isLoading
+                  ? const CircularProgressIndicator(color: AppColors.white)
+                  : PrimaryButton(text: "Entrar", onPressed: _login),
               const SizedBox(height: 20),
+
+              // Divisor
+              const DividerWithText(text: "OU"),
+              const SizedBox(height: 20),
+
+              // Botão Login com Google
+              SocialLoginButton(
+                text: "Entrar com Google",
+                iconPath: "assets/icons/google.png",
+                onPressed: () async {
+                  final user = await AuthService().signInWithGoogle();
+
+                  if (user != null) {
+                    if (context.mounted) {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (_) => const HomeView()),
+                      );
+                    }
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Erro ao fazer login com Google'),
+                      ),
+                    );
+                  }
+                },
+              ),
             ],
           ),
         ),

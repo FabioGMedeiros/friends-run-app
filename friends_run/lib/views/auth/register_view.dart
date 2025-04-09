@@ -1,5 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:friends_run/core/services/auth_service.dart';
+import 'package:friends_run/views/home/home_view.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:friends_run/core/utils/colors.dart';
 import 'package:friends_run/core/utils/validationsUtils.dart';
@@ -16,7 +20,7 @@ class RegisterView extends ConsumerStatefulWidget {
 class _RegisterViewState extends ConsumerState<RegisterView> {
   final _formKey = GlobalKey<FormState>();
   final _passwordController = TextEditingController();
-  
+
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
     XFile? pickedFile;
@@ -52,19 +56,44 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
     );
   }
 
-  void _register() {
+  void _register() async {
     if (_formKey.currentState!.validate()) {
+      final notifier = ref.read(authProvider.notifier);
       final authState = ref.read(authProvider);
-      
-      // Validação adicional da imagem (se necessário)
+
       if (authState.profileImage == null || authState.profileImage!.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Por favor, selecione uma imagem de perfil")),
+          const SnackBar(
+            content: Text("Por favor, selecione uma imagem de perfil"),
+          ),
         );
         return;
       }
-      
-      print("Cadastro realizado com sucesso!");
+
+      notifier.setLoading(true); // Ativa loading
+
+      final File profileImageFile = File(authState.profileImage!);
+      final user = await AuthService().registerUser(
+        name: authState.name,
+        email: authState.email,
+        password: authState.password,
+        profileImage: profileImageFile,
+      );
+
+      notifier.setLoading(false); // Desativa loading
+
+      if (user != null) {
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const HomeView()),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Erro ao cadastrar usuário")),
+        );
+      }
     }
   }
 
@@ -96,55 +125,52 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Upload de imagem
               ProfileImagePicker(
                 imagePath: authState.profileImage,
                 onTap: _pickImage,
               ),
               const SizedBox(height: 20),
-
-              // Campo Nome Completo
               AuthTextField(
                 label: "Nome Completo",
                 validator: ValidationUtils.validateName,
-                onChanged: (value) => ref.read(authProvider.notifier).updateName(value),
+                onChanged: (value) =>
+                    ref.read(authProvider.notifier).updateName(value),
               ),
               const SizedBox(height: 15),
-
-              // Campo Email
               AuthTextField(
                 label: "Email",
                 validator: ValidationUtils.validateEmail,
-                onChanged: (value) => ref.read(authProvider.notifier).updateEmail(value),
+                onChanged: (value) =>
+                    ref.read(authProvider.notifier).updateEmail(value),
               ),
               const SizedBox(height: 15),
-
-              // Campo Senha
               AuthTextField(
                 label: "Senha",
                 isPassword: true,
                 controller: _passwordController,
                 validator: ValidationUtils.validatePassword,
-                onChanged: (value) => ref.read(authProvider.notifier).updatePassword(value),
+                onChanged: (value) =>
+                    ref.read(authProvider.notifier).updatePassword(value),
               ),
               const SizedBox(height: 15),
-
-              // Campo Confirmar Senha
               AuthTextField(
                 label: "Confirmar Senha",
                 isPassword: true,
-                validator: (value) => ValidationUtils.validateConfirmPassword(
-                  value, 
-                  _passwordController.text
-                ),
+                validator: (value) =>
+                    ValidationUtils.validateConfirmPassword(
+                      value,
+                      _passwordController.text,
+                    ),
               ),
               const SizedBox(height: 30),
 
-              // Botão Criar Conta
-              PrimaryButton(
-                text: "Criar Conta",
-                onPressed: _register,
-              ),
+              // Loading ou botão
+              authState.isLoading
+                  ? const CircularProgressIndicator(color: AppColors.white)
+                  : PrimaryButton(
+                      text: "Criar Conta",
+                      onPressed: _register,
+                    ),
             ],
           ),
         ),
@@ -152,3 +178,4 @@ class _RegisterViewState extends ConsumerState<RegisterView> {
     );
   }
 }
+

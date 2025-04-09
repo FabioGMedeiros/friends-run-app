@@ -1,3 +1,4 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:friends_run/views/auth/auth_main_view.dart';
@@ -5,8 +6,15 @@ import 'package:friends_run/views/no_connection/no_connection_view.dart';
 import 'core/providers/connectivity_provider.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
-void main() {
-  runApp(const ProviderScope(child: MyApp()));
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+
+  runApp(
+    const ProviderScope(
+      child: MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
