@@ -89,10 +89,7 @@ class _LoginViewState extends ConsumerState<LoginView> {
 
               authState.isLoading
                   ? const CircularProgressIndicator(color: AppColors.white)
-                  : PrimaryButton(
-                      text: "Entrar",
-                      onPressed: _login,
-                    ),
+                  : PrimaryButton(text: "Entrar", onPressed: _login),
               const SizedBox(height: 20),
 
               // Divisor
@@ -103,9 +100,23 @@ class _LoginViewState extends ConsumerState<LoginView> {
               SocialLoginButton(
                 text: "Entrar com Google",
                 iconPath: "assets/icons/google.png",
-                onPressed: () {
-                  // Chamar a API de autenticação com Google
-                  print("Login com Google");
+                onPressed: () async {
+                  final user = await AuthService().signInWithGoogle();
+
+                  if (user != null) {
+                    if (context.mounted) {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (_) => const HomeView()),
+                      );
+                    }
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Erro ao fazer login com Google'),
+                      ),
+                    );
+                  }
                 },
               ),
             ],
