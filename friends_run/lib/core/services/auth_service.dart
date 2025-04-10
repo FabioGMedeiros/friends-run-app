@@ -27,7 +27,7 @@ class AuthService {
 
     // 2. Se não tiver imagem, usa a placeholder
     if (profileImage == null) {
-      imageUrl = 'assets/icons/auth_image.png'; // Caminho da sua imagem placeholder
+      imageUrl = 'https://firebasestorage.googleapis.com/v0/b/friends-run-f4061.firebasestorage.app/o/profile_placeholder.png?alt=media&token=5943558c-0747-4250-a601-999080a820cb'; // Caminho da sua imagem placeholder
     } else {
       // Faz upload apenas se tiver imagem
       imageUrl = await FirebaseStorageService.uploadProfileImage(
