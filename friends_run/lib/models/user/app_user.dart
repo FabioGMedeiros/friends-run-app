@@ -49,4 +49,19 @@ class AppUser {
       'profileImageUrl': profileImageUrl,
     };
   }
+
+  AppUser copyWith({
+    String? uid,
+    String? name,
+    String? email,
+    String? profileImageUrl,
+  }) {
+    return AppUser(
+      // If a new value is provided (not null), use it. Otherwise, keep the current value.
+      uid: uid ?? this.uid,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      profileImageUrl: profileImageUrl ?? this.profileImageUrl,
+    );
+  }
 }

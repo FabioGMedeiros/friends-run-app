@@ -110,6 +110,22 @@ class RaceNotifier extends StateNotifier<RaceActionState> {
     }
   }
 
+  Future<bool> leaveRace(String raceId, String userId) async {
+    // Poderia definir um estado de loading específico para esta ação se necessário
+    // state = state.copyWith(isLoading: true, clearError: true); // Ou usar um loading específico
+     state = state.copyWith(clearError: true); // Limpa erro anterior
+    try {
+      await _raceService.leaveRace(raceId, userId);
+      // state = state.copyWith(isLoading: false);
+      // Poderia adicionar uma mensagem de sucesso ao estado se desejado
+      // state = state.copyWith(successMessage: "Você saiu da corrida.");
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: "Erro ao sair da corrida: ${e.toString().replaceFirst("Exception: ", "")}");
+      return false;
+    }
+  }
+
   Future<bool> deleteRace(String id) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {

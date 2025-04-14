@@ -276,6 +276,22 @@ class RaceService {
     }
   }
 
+  Future<void> leaveRace(String raceId, String userId) async {
+    try {
+      print("Tentando remover $userId da corrida $raceId");
+      await _firestore.collection(_collectionName).doc(raceId).update({
+        'participants': FieldValue.arrayRemove([userId]), // Remove o ID do array
+         // Considerar: remover também de pendingParticipants se ele pudesse estar lá?
+         // 'pendingParticipants': FieldValue.arrayRemove([userId]),
+      });
+       print("Usuário $userId removido com sucesso da corrida $raceId");
+    } catch (e) {
+      print("Erro ao remover participante $userId da corrida $raceId: $e");
+      // Relança a exceção para ser tratada no Notifier/UI
+      throw Exception('Failed to leave race: $e');
+    }
+  }
+
   double _calculateDistance(
     double lat1,
     double lon1,
