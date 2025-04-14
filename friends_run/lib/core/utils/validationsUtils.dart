@@ -35,5 +35,23 @@ class ValidationUtils {
         if (value != password) return "As senhas não coincidem";
         return null;
     }
+
+    static String? validateAddress(String? value) {
+        if (value == null || value.trim().isEmpty) {
+            return "Digite um endereço ou local";
+        }
+        // Verifica um tamanho mínimo para evitar entradas muito curtas
+        if (value.trim().length < 5) {
+            return "Endereço muito curto";
+        }
+        // Opcional: Verifica se contém pelo menos uma letra (evita só números/símbolos)
+        final letterRegex = RegExp(r'[a-zA-Z]');
+        if (!letterRegex.hasMatch(value)) {
+             return "Endereço parece inválido (use letras)";
+        }
+        // Validações mais complexas (como presença de cidade) são difíceis com Regex.
+        // A validação real ocorrerá na geocodificação.
+        return null;
+    }
 }
 
