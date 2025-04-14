@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:friends_run/core/services/race_service.dart';
 import 'package:friends_run/models/race/race_model.dart';
+import 'package:friends_run/models/user/app_user.dart';
 
 class RaceProvider with ChangeNotifier {
   final RaceService _raceService = RaceService();
@@ -44,12 +45,28 @@ class RaceProvider with ChangeNotifier {
     return _raceService.getRacesByParticipant(userId);
   }
 
-  Future<Race> createRace(Race race) async {
+  Future<Race> createRace({
+    required String title,
+    required DateTime date,
+    required String startAddress,
+    required String endAddress,
+    required AppUser owner,
+    bool isPrivate = false,
+    String? groupId,
+  }) async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      final createdRace = await _raceService.createRace(race);
+      final createdRace = await _raceService.createRace(
+        title: title,
+        date: date,
+        startAddress: startAddress,
+        endAddress: endAddress,
+        owner: owner,
+        isPrivate: isPrivate,
+        groupId: groupId,
+      );
       _error = null;
       return createdRace;
     } catch (e) {
