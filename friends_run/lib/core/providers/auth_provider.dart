@@ -3,11 +3,11 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:friends_run/core/services/auth_service.dart';
-import 'package:friends_run/models/user/app_user.dart';
+import 'package:friends_run/core/services/auth_service.dart'; // Necessário para authServiceProvider e userProvider
+import 'package:friends_run/models/user/app_user.dart';     // Necessário para os tipos de retorno
 import 'package:meta/meta.dart';
 
-// Estado da autenticação
+// Estado da autenticação para AÇÕES (Login, Registro, Logout)
 @immutable // Boa prática para estados Riverpod
 class AuthActionState {
   final bool isLoading;
@@ -20,10 +20,11 @@ class AuthActionState {
   AuthActionState copyWith({
     bool? isLoading,
     String? error,
-    bool clearError = false,
+    bool clearError = false, // Flag para limpar o erro explicitamente
   }) {
     return AuthActionState._(
       isLoading: isLoading ?? this.isLoading,
+      // Se clearError for true, define erro como null, senão usa o novo erro ou mantém o antigo
       error: clearError ? null : (error ?? this.error),
     );
   }
@@ -40,7 +41,7 @@ class AuthActionState {
   int get hashCode => isLoading.hashCode ^ error.hashCode;
 }
 
-// Notifier para gerenciar o estado da autenticação
+// Notifier para gerenciar o estado das AÇÕES de autenticação
 class AuthNotifier extends StateNotifier<AuthActionState> {
   final AuthService _authService;
 
@@ -48,6 +49,7 @@ class AuthNotifier extends StateNotifier<AuthActionState> {
   AuthNotifier(this._authService) : super(AuthActionState.initial());
 
   // --- Métodos de Ação ---
+  // (Estes métodos executam a ação e atualizam o AuthActionState com isLoading/error)
 
   Future<AppUser?> registerUser({
     required String name,
@@ -55,21 +57,21 @@ class AuthNotifier extends StateNotifier<AuthActionState> {
     required String password,
     File? profileImage,
   }) async {
-    state = state.copyWith(isLoading: true, clearError: true);
+    state = state.copyWith(isLoading: true, clearError: true); // Inicia loading, limpa erro anterior
     try {
+      // Chama o serviço. O serviço agora lança exceções em caso de erro.
       final user = await _authService.registerUser(
         name: name,
         email: email,
         password: password,
         profileImage: profileImage,
       );
-      state = state.copyWith(isLoading: false);
-      // Retorna o usuário se o registro for bem-sucedido
-      // A UI não precisa mais ouvir o AppUser daqui,
-      // o currentUserProvider (que definiremos abaixo) será atualizado automaticamente.
+      state = state.copyWith(isLoading: false); // Finaliza loading
+      // Retorna o usuário se o registro for bem-sucedido (pode ser útil para navegação pós-registro)
       return user;
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: "Erro no registro: ${e.toString()}");
+      // Captura a exceção lançada pelo serviço
+      state = state.copyWith(isLoading: false, error: e.toString().replaceFirst("Exception: ", "")); // Finaliza loading, define erro
       return null; // Indica falha
     }
   }
@@ -85,21 +87,10 @@ class AuthNotifier extends StateNotifier<AuthActionState> {
         password: password,
       );
       state = state.copyWith(isLoading: false);
-      // Retorna o usuário se o login for bem-sucedido
       return user;
     } catch (e) {
-      // Tenta extrair uma mensagem mais amigável do FirebaseException se possível
-      String errorMessage = "Email ou senha inválidos.";
-      if (e is FirebaseException) {
-         // Você pode adicionar mais verificações de e.code aqui
-         // if (e.code == 'user-not-found') errorMessage = 'Usuário não encontrado.';
-         // if (e.code == 'wrong-password') errorMessage = 'Senha incorreta.';
-         // etc...
-         print("Firebase Auth Error Code: ${e.code}"); // Log para debug
-      } else {
-         errorMessage = "Erro no login: ${e.toString()}";
-      }
-      state = state.copyWith(isLoading: false, error: errorMessage);
+       // Captura a exceção lançada pelo serviço (que pode ser específica como 'Email ou senha inválidos.')
+      state = state.copyWith(isLoading: false, error: e.toString().replaceFirst("Exception: ", ""));
       return null; // Indica falha
     }
   }
@@ -109,9 +100,9 @@ class AuthNotifier extends StateNotifier<AuthActionState> {
     try {
       final user = await _authService.signInWithGoogle();
       state = state.copyWith(isLoading: false);
-      return user;
+      return user; // Pode ser null se o usuário cancelou
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: "Erro no login com Google: ${e.toString()}");
+      state = state.copyWith(isLoading: false, error: e.toString().replaceFirst("Exception: ", ""));
       return null;
     }
   }
@@ -121,14 +112,14 @@ class AuthNotifier extends StateNotifier<AuthActionState> {
     try {
       await _authService.logout();
       state = state.copyWith(isLoading: false);
-      return true;
+      return true; // Sucesso
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: "Erro ao sair: ${e.toString()}");
-      return false;
+      state = state.copyWith(isLoading: false, error: e.toString().replaceFirst("Exception: ", ""));
+      return false; // Falha
     }
   }
 
-  // Método para limpar o erro manualmente, se necessário
+  // Método para limpar o erro manualmente, se necessário (ex: ao mostrar um diálogo)
   void clearError() {
     if (state.error != null) {
       state = state.copyWith(clearError: true);
@@ -137,75 +128,113 @@ class AuthNotifier extends StateNotifier<AuthActionState> {
 }
 
 // --- Service Provider ---
-// Provider para AuthService (pode já existir)
-final authServiceProvider = Provider<AuthService>((ref) => AuthService());
+// Provider singleton para a instância do AuthService
+final authServiceProvider = Provider<AuthService>((ref) {
+  // Poderia inicializar dependências aqui se AuthService precisasse
+  return AuthService();
+});
 
 // --- Action Notifier Provider ---
-// Provider para o AuthNotifier refatorado (gerencia AuthActionState)
+// Provider para o AuthNotifier (gerencia AuthActionState para ações)
 final authNotifierProvider = StateNotifierProvider<AuthNotifier, AuthActionState>((ref) {
+  // Assiste (watch) o authServiceProvider para obter a instância do serviço
   final authService = ref.watch(authServiceProvider);
   return AuthNotifier(authService);
 });
 
-// --- Data Providers (Estado da Autenticação) ---
+// --- Data Providers (Estado da Autenticação e Dados do Usuário) ---
 
-// Provider que expõe o Stream de mudanças de estado de autenticação do Firebase
-// Ele emite o objeto `User?` do Firebase Auth.
-final authStateChangesProvider = StreamProvider<User?>((ref) {
+// Provider que expõe o Stream de mudanças de estado de autenticação do Firebase Auth
+// Emite o objeto `User?` bruto do Firebase.
+final authStateChangesProvider = StreamProvider.autoDispose<User?>((ref) {
   // Ouve diretamente o stream do FirebaseAuth
-  return FirebaseAuth.instance.authStateChanges();
+  // autoDispose garante que o listener seja removido quando não for mais usado
+  return ref.watch(authServiceProvider).authStateChanges;
+  // Alternativa: FirebaseAuth.instance.authStateChanges();
 });
 
-// Provider que expõe o AppUser logado atualmente (ou null)
-// Ele depende do authStateChangesProvider e busca os dados no Firestore
-final currentUserProvider = StreamProvider<AppUser?>((ref) {
-  // Ouve o stream de mudanças do Firebase Auth
-  final authState = ref.watch(authStateChangesProvider);
+// Provider que expõe o AppUser logado atualmente (ou null), com atualizações em tempo real do Firestore
+// Depende do authStateChangesProvider para saber QUEM está logado.
+final currentUserProvider = StreamProvider.autoDispose<AppUser?>((ref) {
+  // Ouve o stream de mudanças do Firebase Auth (User?)
+  final authStateStream = ref.watch(authStateChangesProvider);
 
-  // Quando o estado do Firebase Auth muda...
-  return authState.when(
+  // Transforma o Stream<User?> em Stream<AppUser?>
+  return authStateStream.when(
     data: (firebaseUser) {
       // Se há um usuário Firebase logado...
       if (firebaseUser != null) {
-        // Busca os dados correspondentes do AppUser no Firestore.
-        // Retorna um Stream que emite o AppUser ou null se não encontrado.
-        // (Você pode precisar de um método no AuthService para isso ou fazer aqui)
         try {
-          // Escuta por mudanças no documento do usuário no Firestore
+          // Escuta por mudanças NO DOCUMENTO do usuário no Firestore
           return FirebaseFirestore.instance
               .collection('users')
               .doc(firebaseUser.uid)
-              .snapshots() // Usa snapshots para ouvir mudanças no perfil
+              .snapshots() // Usa snapshots() para ouvir mudanças no perfil em tempo real
               .map((docSnapshot) {
+                // Quando o documento muda (ou na primeira leitura)...
                 if (docSnapshot.exists && docSnapshot.data() != null) {
                   // Converte os dados do Firestore para AppUser
                   return AppUser.fromMap(docSnapshot.data()!);
                 } else {
                   // Documento não existe no Firestore (caso raro, pode indicar erro no registro)
-                  print("AVISO: Usuário ${firebaseUser.uid} logado no Firebase Auth, mas não encontrado no Firestore.");
+                  print("AVISO: Usuário ${firebaseUser.uid} logado no Firebase Auth, mas documento não encontrado/vazio no Firestore.");
+                  // Pode ser que o registro ainda não completou a escrita no Firestore.
+                  // Ou o documento foi deletado manualmente.
+                  // Retornar null indica que não temos os dados do AppUser.
                   return null;
                 }
               })
-              .handleError((error) {
-                 print("Erro ao buscar/ouvir AppUser do Firestore: $error");
-                 return null; // Emite null em caso de erro no stream do Firestore
+              .handleError((error, stackTrace) { // Trata erros do stream do Firestore
+                 print("Erro no stream do Firestore para AppUser (${firebaseUser.uid}): $error");
+                 // print(stackTrace); // Descomente para ver o stacktrace
+                 return null; // Emite null em caso de erro neste stream específico
               });
         } catch (e) {
-           print("Erro ao configurar stream do Firestore para AppUser: $e");
-           return Stream.value(null); // Retorna stream com null em caso de erro inicial
+           print("Erro ao configurar stream do Firestore para AppUser (${firebaseUser.uid}): $e");
+           // print(stackTrace);
+           return Stream.value(null); // Retorna stream com null em caso de erro inicial na configuração
         }
-
       } else {
         // Se não há usuário Firebase logado, emite null.
         return Stream.value(null);
       }
     },
-    // Se o stream do Firebase Auth estiver carregando, emite null temporariamente.
-    loading: () => Stream.value(null),
-    // Se houver erro no stream do Firebase Auth, emite null.
+    // Se o stream do Firebase Auth estiver carregando (pouco provável de acontecer por muito tempo)
+    loading: () => Stream.value(null), // Emite null temporariamente
+    // Se houver erro no stream do Firebase Auth (ex: problema de inicialização do Firebase)
     error: (err, stack) {
-       print("Erro no authStateChangesProvider: $err");
-       return Stream.value(null);
+       print("Erro crítico no authStateChangesProvider: $err");
+       // print(stack);
+       return Stream.value(null); // Emite null em caso de erro no stream base
     },
   );
+});
+
+
+// --- Provider para buscar um AppUser específico por ID ---
+// (Combinação dos dois snippets)
+/// Busca um [AppUser] específico pelo seu [userId].
+/// Retorna `null` se o ID for vazio, o usuário não for encontrado ou ocorrer um erro.
+/// Usa `.autoDispose` para limpar o cache do provider quando não estiver mais em uso.
+/// Usa `.family` para poder passar o `userId` como parâmetro.
+final userProvider = FutureProvider.autoDispose.family<AppUser?, String>((ref, userId) async {
+  // Verifica se o ID é válido antes de prosseguir
+  if (userId.isEmpty) {
+    print("userProvider: Tentativa de busca com userId vazio.");
+    return null;
+  }
+
+  // Obtém a instância do AuthService
+  final authService = ref.watch(authServiceProvider);
+
+  // Chama o método do serviço que busca o usuário (e pode usar cache interno)
+  // O FutureProvider lida com o estado de loading/error automaticamente
+  try {
+    return await authService.getUserById(userId);
+  } catch (e) {
+     print("Erro capturado pelo userProvider ao chamar authService.getUserById para $userId: $e");
+     // Embora getUserById já trate erros e retorne null, podemos logar aqui também.
+     // O FutureProvider colocará o estado em 'error'.
+     return null; // Ou rethrow e; para propagar o erro ao .when do widget
+  }
 });

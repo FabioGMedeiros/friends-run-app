@@ -1,36 +1,26 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:geolocator/geolocator.dart'; // Para distância do usuário
-
-// Models e Providers
+import 'package:geolocator/geolocator.dart';
 import 'package:friends_run/models/race/race_model.dart';
 import 'package:friends_run/core/providers/race_provider.dart';
 import 'package:friends_run/core/providers/auth_provider.dart';
-import 'package:friends_run/core/providers/location_provider.dart'; // Para distância do usuário
-
-// Utils e outros Widgets
+import 'package:friends_run/core/providers/location_provider.dart';
 import 'package:friends_run/core/utils/colors.dart';
-// Importe widgets reutilizáveis, se tiver (ex: InfoRow)
-
-// Provider para buscar detalhes da corrida (JÁ DEFINIDO em race_provider.dart)
-// final raceDetailsProvider = FutureProvider.family.autoDispose<Race?, String>(...);
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class RaceDetailsView extends ConsumerWidget {
   final String raceId;
 
   const RaceDetailsView({required this.raceId, super.key});
 
-  // Helper para construir linha de informação (similar ao do RaceCard)
   Widget _buildInfoRow(
     BuildContext context,
     IconData icon,
     String label,
-    String value,
+    Widget valueWidget,
   ) {
-    // Adiciona um pouco mais de padding e formatação diferente
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6.0),
       child: Row(
@@ -50,10 +40,7 @@ class RaceDetailsView extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: const TextStyle(color: AppColors.white, fontSize: 15),
-                ),
+                valueWidget,
               ],
             ),
           ),
@@ -62,11 +49,10 @@ class RaceDetailsView extends ConsumerWidget {
     );
   }
 
-  // Helper para construir o mapa estático ou interativo simples
   Widget _buildMapView(Race race) {
-    final LatLng startPoint = LatLng(race.startLatitude, race.startLongitude);
-    final LatLng endPoint = LatLng(race.endLatitude, race.endLongitude);
-    final Set<Marker> markers = {
+    final startPoint = LatLng(race.startLatitude, race.startLongitude);
+    final endPoint = LatLng(race.endLatitude, race.endLongitude);
+    final markers = {
       Marker(
         markerId: const MarkerId('start'),
         position: startPoint,
@@ -80,8 +66,7 @@ class RaceDetailsView extends ConsumerWidget {
       ),
     };
 
-    // Calcula limites para centralizar o mapa
-    LatLngBounds bounds = LatLngBounds(
+    var bounds = LatLngBounds(
       southwest: LatLng(
         startPoint.latitude < endPoint.latitude
             ? startPoint.latitude
@@ -100,20 +85,15 @@ class RaceDetailsView extends ConsumerWidget {
       ),
     );
 
-    // Correção para ponto único (início e fim iguais)
     if (startPoint == endPoint) {
-      // Cria um limite pequeno ao redor do ponto único
+      const delta = 0.002;
       bounds = LatLngBounds(
-        southwest: LatLng(
-          startPoint.latitude - 0.001,
-          startPoint.longitude - 0.001,
-        ),
-        northeast: LatLng(
-          startPoint.latitude + 0.001,
-          startPoint.longitude + 0.001,
-        ),
+        southwest: LatLng(startPoint.latitude - delta, startPoint.longitude - delta),
+        northeast: LatLng(startPoint.latitude + delta, startPoint.longitude + delta),
       );
     }
+
+    final mapControllerCompleter = Completer<GoogleMapController>();
 
     return SizedBox(
       height: 250,
@@ -122,24 +102,29 @@ class RaceDetailsView extends ConsumerWidget {
         child: GoogleMap(
           markers: markers,
           initialCameraPosition: CameraPosition(
-            target: bounds.northeast,
+            target: LatLng(
+              (startPoint.latitude + endPoint.latitude) / 2,
+              (startPoint.longitude + endPoint.longitude) / 2,
+            ),
             zoom: 14,
-          ), // Posição inicial centralizada
-          // Desabilita controles e gestos para um mapa mais "estático"
-          // myLocationEnabled: false,
-          // myLocationButtonEnabled: false,
-          zoomControlsEnabled: true, // Permite zoom
+          ),
+          myLocationEnabled: false,
+          myLocationButtonEnabled: false,
+          zoomControlsEnabled: true,
           zoomGesturesEnabled: true,
           scrollGesturesEnabled: true,
           tiltGesturesEnabled: false,
           rotateGesturesEnabled: true,
-          mapToolbarEnabled: false, // Remove botões do Google Maps
+          mapToolbarEnabled: false,
+          mapType: MapType.normal,
           onMapCreated: (controller) {
-            // Anima a câmera para ajustar aos limites após a criação
-            Future.delayed(const Duration(milliseconds: 50), () {
+            if (!mapControllerCompleter.isCompleted) {
+              mapControllerCompleter.complete(controller);
+            }
+            Future.delayed(const Duration(milliseconds: 100), () {
               controller.animateCamera(
-                CameraUpdate.newLatLngBounds(bounds, 50.0),
-              ); // Padding 50
+                CameraUpdate.newLatLngBounds(bounds, 60.0),
+              );
             });
           },
         ),
@@ -147,7 +132,6 @@ class RaceDetailsView extends ConsumerWidget {
     );
   }
 
-  // Helper para o botão de Ação (Participar/Solicitar/Sair)
   Widget _buildActionButton(BuildContext context, WidgetRef ref, Race race) {
     final currentUserAsync = ref.watch(currentUserProvider);
     final actionState = ref.watch(raceNotifierProvider);
@@ -155,207 +139,294 @@ class RaceDetailsView extends ConsumerWidget {
     return currentUserAsync.when(
       data: (currentUser) {
         if (currentUser == null) {
-          return ElevatedButton.icon(
-            icon: const Icon(Icons.login),
-            label: const Text("Faça login para interagir"),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.greyDark,
+          return SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.login, size: 20),
+              label: const Text("Faça login para interagir"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.greyDark,
+                foregroundColor: AppColors.white.withOpacity(0.8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              onPressed: () {},
             ),
-            onPressed: () {
-              /* TODO: Navegar para login */
-            },
           );
         }
 
         final currentUserId = currentUser.uid;
-        final bool isParticipant = race.participants.any(
-          (p) => p.uid == currentUserId,
-        );
-        final bool isPending = race.pendingParticipants.any(
-          (p) => p.uid == currentUserId,
-        );
-        final bool isOwner = race.ownerId == currentUserId;
+        final isParticipant = race.participants.any((p) => p.uid == currentUserId);
+        final isPending = race.pendingParticipants.any((p) => p.uid == currentUserId);
+        final isOwner = race.ownerId == currentUserId;
 
         String buttonText = "";
         Color buttonColor = AppColors.greyDark;
-        IconData buttonIcon = Icons.help_outline; // Ícone padrão
+        IconData buttonIcon = Icons.help_outline;
         VoidCallback? onPressedAction;
-        bool canInteract = false; // Flag se o botão deve ser ativo
+        bool canInteract = false;
 
         if (isOwner) {
-          // TODO: Adicionar opções para o dono (Editar/Excluir/Gerenciar Pendentes)
           buttonText = "Você é o Dono";
           buttonIcon = Icons.shield_outlined;
-          // onPressedAction = () { /* Abrir menu de gerenciamento? */ };
+          buttonColor = AppColors.underBackground;
         } else if (isParticipant) {
           buttonText = "Sair da Corrida";
-          buttonColor = Colors.redAccent.shade700; // Cor diferente para sair
-          buttonIcon = Icons.logout;
+          buttonColor = Colors.redAccent.shade700;
+          buttonIcon = Icons.directions_run;
           onPressedAction = () async {
-            final success = await ref
-                .read(raceNotifierProvider.notifier)
-                .leaveRace(race.id, currentUserId);
-            if (success && context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text("Você saiu da corrida."),
-                  backgroundColor: Colors.blueGrey,
-                ),
-              );
-              // Invalida para atualizar estado
-              ref.invalidate(nearbyRacesProvider); // Atualiza home
-              ref.invalidate(
-                raceDetailsProvider(race.id),
-              ); // Atualiza esta tela
+            bool? confirm = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Confirmar Saída'),
+                content: Text('Tem certeza que deseja sair da corrida "${race.title}"?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Cancelar'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text(
+                      'Sair',
+                      style: TextStyle(color: Colors.redAccent),
+                    ),
+                  ),
+                ],
+              ),
+            );
+            if (confirm == true) {
+              final success = await ref
+                  .read(raceNotifierProvider.notifier)
+                  .leaveRace(race.id, currentUserId);
+              if (success && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("Você saiu da corrida."),
+                    backgroundColor: Colors.blueGrey,
+                  ),
+                );
+                ref.invalidate(raceDetailsProvider(race.id));
+                ref.invalidate(nearbyRacesProvider);
+              }
             }
           };
-          canInteract = true; // Pode sair
+          canInteract = true;
         } else if (isPending) {
           buttonText = "Solicitação Pendente";
           buttonIcon = Icons.hourglass_top_outlined;
-          // Opcional: Permitir cancelar solicitação?
-          // onPressedAction = () async { ... lógica para cancelar ... }
         } else {
-          // Não é dono, não participa, não está pendente
-          buttonText =
-              race.isPrivate
-                  ? "Solicitar Participação"
-                  : "Participar da Corrida";
+          buttonText = race.isPrivate ? "Solicitar Participação" : "Participar da Corrida";
           buttonColor = AppColors.primaryRed;
-          buttonIcon =
-              race.isPrivate ? Icons.vpn_key_outlined : Icons.directions_run;
+          buttonIcon = race.isPrivate ? Icons.vpn_key_outlined : Icons.add_circle_outline;
           onPressedAction = () {
             if (race.isPrivate) {
-              // Lógica para solicitar (sem diálogo aqui, chama direto)
               ref
                   .read(raceNotifierProvider.notifier)
                   .addParticipationRequest(race.id, currentUserId)
                   .then((success) {
-                    if (success && context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Solicitação enviada!'),
-                          backgroundColor: Colors.orangeAccent,
-                        ),
-                      );
-                      ref.invalidate(
-                        raceDetailsProvider(race.id),
-                      ); // Atualiza estado do botão
-                    }
-                  });
+                if (success && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Solicitação enviada!'),
+                      backgroundColor: Colors.orangeAccent,
+                    ),
+                  );
+                  ref.invalidate(raceDetailsProvider(race.id));
+                }
+              });
             } else {
-              // Lógica para participar (sem diálogo aqui, chama direto)
               ref
                   .read(raceNotifierProvider.notifier)
                   .addParticipant(race.id, currentUserId)
                   .then((success) {
-                    if (success && context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Você agora participa de "${race.title}"!',
-                          ),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                      ref.invalidate(nearbyRacesProvider);
-                      ref.invalidate(raceDetailsProvider(race.id));
-                    }
-                  });
+                if (success && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Você agora participa de "${race.title}"!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                  ref.invalidate(raceDetailsProvider(race.id));
+                  ref.invalidate(nearbyRacesProvider);
+                }
+              });
             }
           };
-          canInteract = true; // Pode participar/solicitar
+          canInteract = true;
         }
 
-        // Estado de carregamento global do Notifier
         final isLoading = actionState.isLoading;
 
         return SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
-            icon:
-                isLoading && canInteract
-                    ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                    : Icon(buttonIcon, size: 20),
+            icon: isLoading && canInteract
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : Icon(buttonIcon, size: 20),
             label: Text(
               buttonText,
               style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: canInteract ? buttonColor : AppColors.greyDark,
+              backgroundColor: buttonColor,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
               padding: const EdgeInsets.symmetric(vertical: 14),
-            ).copyWith(
-              // Garante a cor correta no estado desabilitado
-              backgroundColor: MaterialStateProperty.resolveWith<Color?>((
-                Set<MaterialState> states,
-              ) {
-                if (states.contains(MaterialState.disabled)) {
-                  // Cor diferente para "Dono" vs "Pendente/Participando"
-                  if (isOwner)
-                    return AppColors.underBackground; // Mais sutil para dono
-                  return AppColors.greyDark.withAlpha(
-                    200,
-                  ); // Cinza para outros desabilitados
-                }
-                return canInteract
-                    ? buttonColor
-                    : AppColors.greyDark; // Cor ativa ou cinza padrão
-              }),
-              foregroundColor: MaterialStateProperty.resolveWith<Color?>((
-                Set<MaterialState> states,
-              ) {
-                if (states.contains(MaterialState.disabled)) {
-                  if (isOwner)
-                    return AppColors.greyLight; // Texto mais claro para dono
-                  return AppColors.white.withAlpha(
-                    150,
-                  ); // Texto apagado para outros
-                }
-                return AppColors.white; // Texto normal
-              }),
+              disabledBackgroundColor: buttonColor.withOpacity(0.5),
+              disabledForegroundColor: Colors.white.withOpacity(0.7),
             ),
-            onPressed:
-                isLoading || !canInteract || onPressedAction == null
-                    ? null
-                    : onPressedAction,
+            onPressed: isLoading || !canInteract || onPressedAction == null
+                ? null
+                : onPressedAction,
           ),
         );
       },
-      loading:
-          () => const Center(
-            child: CircularProgressIndicator(color: AppColors.primaryRed),
+      loading: () => const Center(
+        child: CircularProgressIndicator(color: AppColors.primaryRed),
+      ),
+      error: (err, stack) => Center(
+        child: Text(
+          "Erro ao carregar dados do usuário: $err",
+          style: const TextStyle(color: Colors.redAccent),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildParticipantItem(
+    BuildContext context,
+    WidgetRef ref,
+    String userId,
+    String ownerId,
+  ) {
+    final userAsync = ref.watch(userProvider(userId));
+
+    return userAsync.when(
+      data: (user) {
+        if (user == null) {
+          return ListTile(
+            dense: true,
+            leading: const CircleAvatar(
+              radius: 18,
+              backgroundColor: AppColors.greyDark,
+              child: Icon(Icons.question_mark, size: 18),
+            ),
+            title: const Text(
+              'Usuário não encontrado',
+              style: TextStyle(
+                color: AppColors.greyLight,
+                fontStyle: FontStyle.italic,
+                fontSize: 14,
+              ),
+            ),
+          );
+        }
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5.0),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: AppColors.greyDark,
+                backgroundImage: user.profileImageUrl!.isNotEmpty
+                    ? CachedNetworkImageProvider(user.profileImageUrl ?? '')
+                    : null,
+                child: user.profileImageUrl!.isEmpty
+                    ? const Icon(
+                        Icons.person,
+                        size: 18,
+                        color: AppColors.greyLight,
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  user.name.isNotEmpty ? user.name : 'Usuário Anônimo',
+                  style: const TextStyle(
+                    color: AppColors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (user.uid == ownerId)
+                Tooltip(
+                  message: "Organizador",
+                  child: Icon(
+                    Icons.shield_outlined,
+                    size: 18,
+                    color: AppColors.primaryRed.withOpacity(0.8),
+                  ),
+                ),
+            ],
           ),
-      error:
-          (err, stack) => Text(
-            "Erro ao carregar usuário: $err",
-            style: const TextStyle(color: Colors.redAccent),
+        );
+      },
+      loading: () => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 9.0),
+        child: Row(
+          children: [
+            const CircleAvatar(
+              radius: 18,
+              backgroundColor: AppColors.greyDark,
+            ),
+            const SizedBox(width: 12),
+            Container(
+              height: 10,
+              width: 100,
+              color: AppColors.greyDark.withOpacity(0.5),
+            ),
+          ],
+        ),
+      ),
+      error: (err, stack) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5.0),
+          child: Row(
+            children: [
+              const CircleAvatar(
+                radius: 18,
+                backgroundColor: Colors.redAccent,
+                child: Icon(Icons.error_outline, size: 18, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Erro ao carregar',
+                style: TextStyle(color: Colors.redAccent, fontSize: 14),
+              ),
+            ],
           ),
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Ouve o provider de detalhes da corrida específica
     final raceAsync = ref.watch(raceDetailsProvider(raceId));
 
-    // Listener para erros de AÇÃO (join, leave, etc.)
     ref.listen<RaceActionState>(raceNotifierProvider, (_, next) {
       if (next.error != null && next.error!.isNotEmpty) {
+        ScaffoldMessenger.of(context).removeCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(next.error!),
             backgroundColor: Colors.redAccent,
+            duration: const Duration(seconds: 3),
           ),
         );
         ref.read(raceNotifierProvider.notifier).clearError();
@@ -365,13 +436,15 @@ class RaceDetailsView extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        // Mostra título dinâmico baseado no estado da corrida
         title: Text(
           raceAsync.maybeWhen(
             data: (race) => race?.title ?? 'Detalhes da Corrida',
-            orElse: () => 'Carregando Corrida...',
+            orElse: () => 'Carregando...',
           ),
-          style: const TextStyle(color: AppColors.white),
+          style: const TextStyle(
+            color: AppColors.white,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         backgroundColor: AppColors.background,
         elevation: 0,
@@ -383,69 +456,116 @@ class RaceDetailsView extends ConsumerWidget {
           ),
           onPressed: () => Navigator.pop(context),
         ),
-        // TODO: Adicionar ações para o dono (editar/excluir)?
       ),
-      body: raceAsync.when(
-        loading:
-            () => const Center(
-              child: CircularProgressIndicator(color: AppColors.primaryRed),
+      body: SafeArea(
+        child: raceAsync.when(
+          loading: () => const Center(
+            child: CircularProgressIndicator(color: AppColors.primaryRed),
+          ),
+          error: (error, stack) => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    color: Colors.redAccent,
+                    size: 50,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    "Erro ao carregar corrida:\n$error",
+                    style: const TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 16,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.refresh),
+                    label: const Text("Tentar Novamente"),
+                    onPressed: () => ref.invalidate(raceDetailsProvider(raceId)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryRed,
+                      foregroundColor: AppColors.white,
+                    ),
+                  ),
+                ],
+              ),
             ),
-        error:
-            (error, stack) => Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
+          ),
+          data: (race) {
+            if (race == null) {
+              return const Center(
                 child: Text(
-                  "Erro ao carregar detalhes da corrida:\n$error",
-                  style: const TextStyle(color: Colors.redAccent),
+                  "Corrida não encontrada.",
+                  style: TextStyle(color: AppColors.greyLight, fontSize: 16),
                 ),
-              ),
-            ),
-        data: (race) {
-          // Se a corrida não for encontrada no Firestore
-          if (race == null) {
-            return const Center(
-              child: Text(
-                "Corrida não encontrada.",
-                style: TextStyle(color: AppColors.greyLight),
-              ),
+              );
+            }
+
+            final ownerNameWidget = Consumer(
+              builder: (context, ownerRef, child) {
+                final ownerAsync = ownerRef.watch(userProvider(race.ownerId));
+                return ownerAsync.when(
+                  data: (ownerUser) => Text(
+                    ownerUser?.name ?? 'Organizador não encontrado',
+                    style: const TextStyle(
+                      color: AppColors.white,
+                      fontSize: 15,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  loading: () => const Text(
+                    'Carregando...',
+                    style: TextStyle(
+                      color: AppColors.greyLight,
+                      fontSize: 15,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                  error: (e, s) => const Text(
+                    'Erro',
+                    style: TextStyle(color: Colors.redAccent, fontSize: 15),
+                  ),
+                );
+              },
             );
-          }
 
-          // Calcula distância do usuário até o início (se localização disponível)
-          final currentLocationAsync = ref.watch(currentLocationProvider);
-          double? distanceToRaceStartKm;
-          if (currentLocationAsync is AsyncData<Position?> &&
-              currentLocationAsync.value != null) {
-            distanceToRaceStartKm =
-                Geolocator.distanceBetween(
-                  currentLocationAsync.value!.latitude,
-                  currentLocationAsync.value!.longitude,
-                  race.startLatitude,
-                  race.startLongitude,
-                ) /
-                1000.0;
-          }
+            double? distanceToRaceStartKm;
+            final currentLocationAsync = ref.watch(currentLocationProvider);
+            if (currentLocationAsync is AsyncData<Position?> &&
+                currentLocationAsync.value != null) {
+              distanceToRaceStartKm = Geolocator.distanceBetween(
+                    currentLocationAsync.value!.latitude,
+                    currentLocationAsync.value!.longitude,
+                    race.startLatitude,
+                    race.startLongitude,
+                  ) /
+                  1000.0;
+            }
 
-          // Conteúdo principal da tela
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // --- Imagem da Corrida ---
-                if (race.imageUrl != null && race.imageUrl!.isNotEmpty)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12.0),
-                    child: Hero(
-                      // Mantém Hero se usar na lista
-                      tag: 'race_image_${race.id}',
-                      child: CachedNetworkImage(
-                        imageUrl: race.imageUrl!,
-                        height: 200, // Altura ligeiramente maior
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        placeholder:
-                            (context, url) => Container(
+            return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 80.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (race.imageUrl != null && race.imageUrl!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 20.0),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12.0),
+                        child: Hero(
+                          tag: 'race_image_${race.id}',
+                          child: CachedNetworkImage(
+                            imageUrl: race.imageUrl!,
+                            height: 200,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Container(
                               height: 200,
                               color: AppColors.underBackground,
                               child: const Center(
@@ -454,8 +574,7 @@ class RaceDetailsView extends ConsumerWidget {
                                 ),
                               ),
                             ),
-                        errorWidget:
-                            (context, url, error) => Container(
+                            errorWidget: (context, url, error) => Container(
                               height: 200,
                               color: AppColors.underBackground,
                               child: const Center(
@@ -466,124 +585,209 @@ class RaceDetailsView extends ConsumerWidget {
                                 ),
                               ),
                             ),
+                          ),
+                        ),
                       ),
                     ),
+                  Text(
+                    race.title,
+                    style: const TextStyle(
+                      color: AppColors.white,
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                if (race.imageUrl != null && race.imageUrl!.isNotEmpty)
-                  const SizedBox(height: 20), // Espaço após imagem
-                // --- Título Grande ---
-                Text(
-                  race.title,
-                  style: const TextStyle(
-                    color: AppColors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.white.withOpacity(0.1),
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        _buildInfoRow(
+                          context,
+                          Icons.calendar_today_outlined,
+                          "Data e Hora",
+                          Text(
+                            race.formattedDate,
+                            style: const TextStyle(
+                              color: AppColors.white,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                        const Divider(
+                          color: AppColors.greyDark,
+                          height: 16,
+                          thickness: 0.5,
+                        ),
+                        _buildInfoRow(
+                          context,
+                          Icons.straighten_outlined,
+                          "Distância Total",
+                          Text(
+                            race.formattedDistance,
+                            style: const TextStyle(
+                              color: AppColors.white,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                        const Divider(
+                          color: AppColors.greyDark,
+                          height: 16,
+                          thickness: 0.5,
+                        ),
+                        _buildInfoRow(
+                          context,
+                          Icons.flag_outlined,
+                          "Início",
+                          Text(
+                            race.startAddress.isNotEmpty
+                                ? race.startAddress
+                                : "Endereço não disponível",
+                            style: const TextStyle(
+                              color: AppColors.white,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                        const Divider(
+                          color: AppColors.greyDark,
+                          height: 16,
+                          thickness: 0.5,
+                        ),
+                        _buildInfoRow(
+                          context,
+                          Icons.location_on_outlined,
+                          "Fim",
+                          Text(
+                            race.endAddress.isNotEmpty
+                                ? race.endAddress
+                                : "Endereço não disponível",
+                            style: const TextStyle(
+                              color: AppColors.white,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                        const Divider(
+                          color: AppColors.greyDark,
+                          height: 16,
+                          thickness: 0.5,
+                        ),
+                        _buildInfoRow(
+                          context,
+                          Icons.person_outline,
+                          "Organizador",
+                          ownerNameWidget,
+                        ),
+                        const Divider(
+                          color: AppColors.greyDark,
+                          height: 16,
+                          thickness: 0.5,
+                        ),
+                        if (distanceToRaceStartKm != null) ...[
+                          _buildInfoRow(
+                            context,
+                            Icons.social_distance_outlined,
+                            "Distância de Você",
+                            Text(
+                              "${distanceToRaceStartKm.toStringAsFixed(1)} km",
+                              style: const TextStyle(
+                                color: AppColors.white,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                          const Divider(
+                            color: AppColors.greyDark,
+                            height: 16,
+                            thickness: 0.5,
+                          ),
+                        ],
+                        _buildInfoRow(
+                          context,
+                          race.isPrivate ? Icons.lock_outline : Icons.lock_open_outlined,
+                          "Visibilidade",
+                          Text(
+                            race.isPrivate ? 'Privada' : 'Pública',
+                            style: const TextStyle(
+                              color: AppColors.white,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-
-                // --- Bloco de Informações ---
-                _buildInfoRow(
-                  context,
-                  Icons.calendar_today_outlined,
-                  "Data e Hora",
-                  race.formattedDate,
-                ),
-                _buildInfoRow(
-                  context,
-                  Icons.straighten_outlined,
-                  "Distância Total",
-                  race.formattedDistance,
-                ),
-                _buildInfoRow(
-                  context,
-                  Icons.flag_outlined,
-                  "Início",
-                  race.startAddress,
-                ),
-                _buildInfoRow(
-                  context,
-                  Icons.location_on_outlined,
-                  "Fim",
-                  race.endAddress,
-                ),
-                _buildInfoRow(
-                  context,
-                  Icons.person_outline,
-                  "Organizador",
-                  race.owner.uid,
-                ), // Mostra ID, precisa buscar nome
-                _buildInfoRow(
-                  context,
-                  Icons.people_outline,
-                  "Participantes",
-                  "${race.participants.length} confirmado(s)",
-                ),
-                if (distanceToRaceStartKm != null)
-                  _buildInfoRow(
-                    context,
-                    Icons.social_distance_outlined,
-                    "Distância de Você",
-                    "${distanceToRaceStartKm.toStringAsFixed(1)} km",
+                  const SizedBox(height: 24),
+                  const Text(
+                    "Mapa da Rota:",
+                    style: TextStyle(
+                      color: AppColors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                _buildInfoRow(
-                  context,
-                  race.isPrivate
-                      ? Icons.lock_outline
-                      : Icons.lock_open_outlined,
-                  "Visibilidade",
-                  race.isPrivate
-                      ? 'Privada (requer solicitação)'
-                      : 'Pública (entrada livre)',
-                ),
-                const SizedBox(height: 20),
-
-                // --- Mapa ---
-                const Text(
-                  "Mapa da Rota:",
-                  style: TextStyle(
-                    color: AppColors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
+                  const SizedBox(height: 10),
+                  _buildMapView(race),
+                  const SizedBox(height: 24),
+                  Text(
+                    "Participantes (${race.participants.length}):",
+                    style: const TextStyle(
+                      color: AppColors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                _buildMapView(race), // Usa o helper do mapa
-                const SizedBox(height: 24),
-
-                // --- Lista de Participantes (Placeholder) ---
-                const Text(
-                  "Participantes:",
-                  style: TextStyle(
-                    color: AppColors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.underBackground.withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: race.participants.isEmpty
+                        ? const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 8.0),
+                            child: Text(
+                              "Nenhum participante confirmado ainda.",
+                              style: TextStyle(color: AppColors.greyLight),
+                            ),
+                          )
+                        : Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: race.participants
+                                .map(
+                                  (participant) => _buildParticipantItem(
+                                    context,
+                                    ref,
+                                    participant.uid,
+                                    race.ownerId,
+                                  ),
+                                )
+                                .toList(),
+                          ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                // TODO: Implementar busca e exibição dos detalhes dos participantes
-                // Necessário criar o 'participantsDetailsProvider' e usar .when() aqui
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.underBackground,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    race.participants.isEmpty
-                        ? "Nenhum participante confirmado ainda."
-                        : "${race.participants.length} participante(s) confirmado(s).\n(Exibição detalhada a implementar)", // Mostra contagem por enquanto
-                    style: const TextStyle(color: AppColors.greyLight),
-                  ),
-                ),
-                const SizedBox(height: 30),
-
-                // --- Botão de Ação ---
-                _buildActionButton(context, ref, race), // Usa o helper do botão
-              ],
-            ),
-          );
-        },
+                  const SizedBox(height: 30),
+                  _buildActionButton(context, ref, race),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }

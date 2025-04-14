@@ -124,14 +124,11 @@ class RaceCard extends ConsumerWidget {
     // --- Observa os providers necessários ---
     final currentUserAsync = ref.watch(currentUserProvider);
     // uid é nullable, então usamos ?.
-    final currentUserId = currentUserAsync.asData?.value?.uid;
     final actionState = ref.watch(raceNotifierProvider);
     final currentLocationAsync = ref.watch(currentLocationProvider);
 
     // --- Lógica de estado do botão ---
     // Usamos currentUserId (nullable) diretamente nas verificações
-    final bool isParticipant = currentUserId != null && race.participants.any((p) => p.uid == currentUserId);
-    final bool isPending = currentUserId != null && race.pendingParticipants.any((p) => p.uid == currentUserId);
 
     bool canInteract = false; // Assume que não pode interagir inicialmente
     String buttonText = "Carregando...";
