@@ -2,44 +2,72 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:friends_run/core/services/race_service.dart';
 import 'package:friends_run/models/race/race_model.dart';
 import 'package:friends_run/models/user/app_user.dart';
+import 'package:meta/meta.dart'; // Para @immutable
 
-final raceProvider = StateNotifierProvider<RaceNotifier, RaceState>((ref) {
-  return RaceNotifier(RaceService());
-});
+//----------------------------------------------------------------------
+// 1. Estado para Ações (Loading/Error)
+//----------------------------------------------------------------------
+@immutable // Boa prática para estados Riverpod
+class RaceActionState {
+  final bool isLoading;
+  final String? error;
 
-class RaceNotifier extends StateNotifier<RaceState> {
+  // Construtor privado para garantir o uso do factory e copyWith
+  const RaceActionState._({this.isLoading = false, this.error});
+
+  // Estado inicial
+  factory RaceActionState.initial() => const RaceActionState._();
+
+  // Método para criar cópias do estado, útil para atualizações
+  RaceActionState copyWith({
+    bool? isLoading,
+    String? error,
+    bool clearError = false, // Flag para limpar erro explicitamente
+  }) {
+    return RaceActionState._(
+      isLoading: isLoading ?? this.isLoading,
+      // Se clearError for true, define error como null,
+      // caso contrário, usa o novo erro ou mantém o antigo.
+      error: clearError ? null : (error ?? this.error),
+    );
+  }
+
+  // Sobrescrever == e hashCode é importante para Riverpod saber se o estado mudou
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RaceActionState &&
+          runtimeType == other.runtimeType &&
+          isLoading == other.isLoading &&
+          error == other.error;
+
+  @override
+  int get hashCode => isLoading.hashCode ^ error.hashCode;
+}
+
+//----------------------------------------------------------------------
+// 2. O Notifier Refatorado
+//    Gerencia o RaceActionState e expõe métodos de ação e streams.
+//----------------------------------------------------------------------
+class RaceNotifier extends StateNotifier<RaceActionState> {
   final RaceService _raceService;
 
-  RaceNotifier(this._raceService) : super(RaceState.initial());
+  // O Notifier agora gerencia RaceActionState
+  RaceNotifier(this._raceService) : super(RaceActionState.initial());
 
-  Future<void> loadRaces() async {
-    state = state.copyWith(isLoading: true, error: null);
-    
-    try {
-      // Lógica para carregar corridas iniciais se necessário
-      state = state.copyWith(isLoading: false);
-    } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
-    }
-  }
+  // --- Métodos que expõem Streams do Serviço ---
+  // As Views usarão StreamProviders para consumir estes.
+  Stream<List<Race>> racesStream() => _raceService.racesStream;
+  Stream<List<Race>> racesByGroup(String groupId) => _raceService.getRacesByGroup(groupId);
+  Stream<List<Race>> racesByOwner(String ownerId) => _raceService.getRacesByOwner(ownerId);
 
-  Stream<List<Race>> racesStream() {
-    return _raceService.racesStream;
-  }
+  // ATENÇÃO: Este stream depende da correção/clarificação sobre o armazenamento de participantes
+  // Se 'participants' for um array de IDs, está ok. Se for array de Mapas, não funcionará.
+  Stream<List<Race>> racesByParticipant(String userId) => _raceService.getRacesByParticipant(userId);
 
-  Stream<List<Race>> racesByGroup(String groupId) {
-    return _raceService.getRacesByGroup(groupId);
-  }
+  // --- Métodos de Ação (modificam dados e gerenciam estado isLoading/error) ---
 
-  Stream<List<Race>> racesByOwner(String ownerId) {
-    return _raceService.getRacesByOwner(ownerId);
-  }
-
-  Stream<List<Race>> racesByParticipant(String userId) {
-    return _raceService.getRacesByParticipant(userId);
-  }
-
-  Future<Race> createRace({
+  Future<Race?> createRace({ // Retorna a Race criada ou null em erro
     required String title,
     required DateTime date,
     required String startAddress,
@@ -48,8 +76,8 @@ class RaceNotifier extends StateNotifier<RaceState> {
     bool isPrivate = false,
     String? groupId,
   }) async {
-    state = state.copyWith(isLoading: true, error: null);
-    
+    // Inicia loading, limpa erro anterior
+    state = state.copyWith(isLoading: true, clearError: true);
     try {
       final createdRace = await _raceService.createRace(
         title: title,
@@ -60,104 +88,166 @@ class RaceNotifier extends StateNotifier<RaceState> {
         isPrivate: isPrivate,
         groupId: groupId,
       );
-      
+      // Sucesso: para loading
       state = state.copyWith(isLoading: false);
       return createdRace;
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
-      rethrow;
+      // Erro: para loading, registra o erro
+      state = state.copyWith(isLoading: false, error: "Erro ao criar corrida: ${e.toString()}");
+      return null; // Indica falha
     }
   }
 
-  Future<void> updateRace(Race race) async {
-    state = state.copyWith(isLoading: true, error: null);
-    
+  Future<bool> updateRace(Race race) async { // Retorna true em sucesso, false em erro
+    state = state.copyWith(isLoading: true, clearError: true);
     try {
       await _raceService.updateRace(race);
       state = state.copyWith(isLoading: false);
+      return true;
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
-      rethrow;
+      state = state.copyWith(isLoading: false, error: "Erro ao atualizar corrida: ${e.toString()}");
+      return false;
     }
   }
 
-  Future<void> deleteRace(String id) async {
-    state = state.copyWith(isLoading: true, error: null);
-    
+  Future<bool> deleteRace(String id) async {
+    state = state.copyWith(isLoading: true, clearError: true);
     try {
       await _raceService.deleteRace(id);
       state = state.copyWith(isLoading: false);
+      return true;
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
-      rethrow;
+      state = state.copyWith(isLoading: false, error: "Erro ao deletar corrida: ${e.toString()}");
+      return false;
     }
   }
 
-  Future<void> addParticipant(String raceId, String userId) async {
+  // --- Métodos de Ação para Participantes ---
+  // (Estes não precisam necessariamente de isLoading global, a menos que a UI precise disso)
+
+  Future<bool> addParticipant(String raceId, String userId) async {
+     // Opcional: gerenciar loading/error se a UI precisar de feedback imediato
+     // state = state.copyWith(isLoading: true, clearError: true);
     try {
       await _raceService.addParticipant(raceId, userId);
+      // state = state.copyWith(isLoading: false);
+      return true;
     } catch (e) {
-      state = state.copyWith(error: e.toString());
-      rethrow;
+      // Apenas registra o erro no estado se quiser mostrar globalmente
+      state = state.copyWith(error: "Erro ao adicionar participante: ${e.toString()}");
+       // state = state.copyWith(isLoading: false, error: ...); // se gerenciar loading
+      return false;
     }
   }
 
-  Future<void> removeParticipant(String raceId, String userId) async {
+  Future<bool> removeParticipant(String raceId, String userId) async {
     try {
       await _raceService.removeParticipant(raceId, userId);
+      return true;
     } catch (e) {
-      state = state.copyWith(error: e.toString());
-      rethrow;
+      state = state.copyWith(error: "Erro ao remover participante: ${e.toString()}");
+      return false;
     }
   }
 
-  Future<void> addParticipationRequest(String raceId, String userId) async {
-    try {
+  Future<bool> addParticipationRequest(String raceId, String userId) async {
+     try {
       await _raceService.addParticipationRequest(raceId, userId);
+      return true;
     } catch (e) {
-      state = state.copyWith(error: e.toString());
-      rethrow;
+      state = state.copyWith(error: "Erro ao solicitar participação: ${e.toString()}");
+      return false;
     }
   }
 
-  Future<void> approveParticipant(String raceId, String userId) async {
-    try {
+   Future<bool> approveParticipant(String raceId, String userId) async {
+     try {
       await _raceService.approveParticipant(raceId, userId);
+      return true;
     } catch (e) {
-      state = state.copyWith(error: e.toString());
-      rethrow;
+      state = state.copyWith(error: "Erro ao aprovar participante: ${e.toString()}");
+      return false;
+    }
+  }
+
+  // Método para limpar o erro manualmente, se necessário
+  void clearError() {
+    if (state.error != null) {
+      state = state.copyWith(clearError: true);
     }
   }
 }
 
-class RaceState {
-  final List<Race> races;
-  final bool isLoading;
-  final String? error;
+//----------------------------------------------------------------------
+// 3. Providers Globais
+//----------------------------------------------------------------------
 
-  RaceState({
-    required this.races,
-    required this.isLoading,
-    this.error,
-  });
+// Provider para o RaceService (singleton)
+final raceServiceProvider = Provider<RaceService>((ref) {
+  // Se RaceService tiver dependências, injete-as aqui.
+  // Ex: final googleMapsService = ref.watch(googleMapsServiceProvider);
+  // return RaceService(googleMapsService);
+  return RaceService(); // Assumindo que não tem dependências agora
+});
 
-  factory RaceState.initial() {
-    return RaceState(
-      races: [],
-      isLoading: false,
-      error: null,
-    );
+// Provider para o RaceNotifier
+// Gerencia RaceActionState e fornece acesso aos métodos de ação.
+final raceNotifierProvider = StateNotifierProvider<RaceNotifier, RaceActionState>((ref) {
+  final raceService = ref.watch(raceServiceProvider);
+  return RaceNotifier(raceService);
+});
+
+// --- Providers para consumir os Streams de Dados ---
+
+// Provider para o stream de todas as corridas públicas/disponíveis
+final allRacesStreamProvider = StreamProvider.autoDispose<List<Race>>((ref) {
+  // Ouve o notifier para re-executar se necessário (embora o stream em si já atualize)
+  ref.watch(raceNotifierProvider);
+  // Acessa o stream através do notifier (ou diretamente do serviço)
+  return ref.read(raceNotifierProvider.notifier).racesStream();
+  // Alternativa: direto do serviço
+  // return ref.read(raceServiceProvider).racesStream;
+});
+
+// Provider para o stream de corridas de um grupo específico
+final groupRacesStreamProvider = StreamProvider.family.autoDispose<List<Race>, String>((ref, groupId) {
+   ref.watch(raceNotifierProvider);
+   return ref.read(raceNotifierProvider.notifier).racesByGroup(groupId);
+});
+
+// Provider para o stream de corridas criadas por um usuário
+final ownerRacesStreamProvider = StreamProvider.family.autoDispose<List<Race>, String>((ref, ownerId) {
+   ref.watch(raceNotifierProvider);
+   return ref.read(raceNotifierProvider.notifier).racesByOwner(ownerId);
+});
+
+// Provider para o stream de corridas em que um usuário participa
+// LEMBRETE: Depende da correção/clarificação sobre o armazenamento de participantes.
+final participantRacesStreamProvider = StreamProvider.family.autoDispose<List<Race>, String>((ref, userId) {
+   ref.watch(raceNotifierProvider);
+   return ref.read(raceNotifierProvider.notifier).racesByParticipant(userId);
+});
+
+
+// Provider para buscar os detalhes de UMA corrida específica (como um Future)
+// Útil para a tela de detalhes, onde talvez você não precise de um stream constante.
+final raceDetailsProvider = FutureProvider.family.autoDispose<Race?, String>((ref, raceId) async {
+  // Não precisa ouvir o notifier aqui, apenas o serviço
+  final raceService = ref.watch(raceServiceProvider);
+  try {
+    return await raceService.getRace(raceId);
+  } catch (e) {
+    // Você pode logar o erro ou retornar null/lançar uma exceção específica
+    print("Erro ao buscar detalhes da corrida $raceId: $e");
+    return null; // Ou rethrow; dependendo de como a UI tratará o erro
   }
+});
 
-  RaceState copyWith({
-    List<Race>? races,
-    bool? isLoading,
-    String? error,
-  }) {
-    return RaceState(
-      races: races ?? this.races,
-      isLoading: isLoading ?? this.isLoading,
-      error: error ?? this.error,
-    );
-  }
-}
+/*
+// Alternativa: Provider para buscar detalhes como Stream (se precisar de updates em tempo real na tela de detalhes)
+final raceDetailsStreamProvider = StreamProvider.family.autoDispose<Race?, String>((ref, raceId) {
+  final raceService = ref.watch(raceServiceProvider);
+  // Precisaria de um método no RaceService tipo: Stream<Race?> getRaceStream(String id)
+  // return raceService.getRaceStream(raceId);
+});
+*/
