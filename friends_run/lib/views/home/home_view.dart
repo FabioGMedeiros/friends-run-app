@@ -181,8 +181,12 @@ class _HomeViewState extends State<HomeView> {
                       icon: Icons.person,
                       title: 'Meu Perfil',
                       onTap: () {
-                        Navigator.pop(context);
-                        Navigator.pushNamed(context, '/profile');
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ProfileView(),
+                          ),
+                        );
                       },
                     ),
                     _buildDrawerItem(
