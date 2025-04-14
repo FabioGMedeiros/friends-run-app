@@ -53,10 +53,11 @@ class HomeView extends ConsumerWidget {
       appBar: AppBar(
         leading: Builder(
           // Builder ainda necessário para obter o context correto para Scaffold.of
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, color: AppColors.white),
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
+          builder:
+              (context) => IconButton(
+                icon: const Icon(Icons.menu, color: AppColors.white),
+                onPressed: () => Scaffold.of(context).openDrawer(),
+              ),
         ),
         title: const Text(
           'Corridas Próximas',
@@ -64,20 +65,6 @@ class HomeView extends ConsumerWidget {
         ),
         backgroundColor: AppColors.background,
         elevation: 0, // Remove a sombra padrão da AppBar
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: AppColors.white),
-            tooltip: "Atualizar localização e corridas",
-            onPressed: () {
-              // 4. Invalida o provider de localização para refazer a busca (sem alteração)
-              ref.invalidate(currentLocationProvider);
-              // Invalidar o de localização geralmente invalida o de corridas automaticamente
-              // devido à dependência no nearbyRacesProvider.
-              // Se não invalidar automaticamente, descomente a linha abaixo:
-              // ref.invalidate(nearbyRacesProvider);
-            },
-          ),
-        ],
       ),
       body: nearbyRacesAsync.when(
         data: (races) {
@@ -89,19 +76,24 @@ class HomeView extends ConsumerWidget {
           return RefreshIndicator(
             // Opcional: Adiciona RefreshIndicator para puxar para atualizar
             onRefresh: () async {
-               ref.invalidate(currentLocationProvider);
-               // Aguarda um pouco para dar tempo da localização atualizar e
-               // o nearbyRacesProvider ser reavaliado. Não é ideal,
-               // o ideal seria o nearbyRacesProvider retornar um Future.
-               await Future.delayed(const Duration(milliseconds: 500));
+              ref.invalidate(currentLocationProvider);
+              // Aguarda um pouco para dar tempo da localização atualizar e
+              // o nearbyRacesProvider ser reavaliado. Não é ideal,
+              // o ideal seria o nearbyRacesProvider retornar um Future.
+              await Future.delayed(const Duration(milliseconds: 500));
             },
             color: AppColors.primaryRed,
             backgroundColor: AppColors.background,
-            child: ListView.builder( // Usa ListView.builder que é mais eficiente
-              physics: const AlwaysScrollableScrollPhysics( // Garante scroll mesmo com poucos itens
-                 parent: BouncingScrollPhysics(),
+            child: ListView.builder(
+              // Usa ListView.builder que é mais eficiente
+              physics: const AlwaysScrollableScrollPhysics(
+                // Garante scroll mesmo com poucos itens
+                parent: BouncingScrollPhysics(),
               ),
-              padding: const EdgeInsets.only(top: 8, bottom: 80), // Padding inferior para não cobrir com FAB
+              padding: const EdgeInsets.only(
+                top: 8,
+                bottom: 80,
+              ), // Padding inferior para não cobrir com FAB
               itemCount: races.length,
               itemBuilder: (context, index) {
                 // Passa a corrida para o componente RaceCard
@@ -112,14 +104,18 @@ class HomeView extends ConsumerWidget {
             ),
           );
         },
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: AppColors.primaryRed),
-        ),
+        loading:
+            () => const Center(
+              child: CircularProgressIndicator(color: AppColors.primaryRed),
+            ),
         // 7. Usa o componente RacesErrorWidget para mostrar erros ao carregar corridas
-        error: (error, stackTrace) => RacesErrorWidget(
-          error: error,
-          onRetry: () => ref.invalidate(currentLocationProvider), // Ação de retry
-        ),
+        error:
+            (error, stackTrace) => RacesErrorWidget(
+              error: error,
+              onRetry:
+                  () =>
+                      ref.invalidate(currentLocationProvider), // Ação de retry
+            ),
       ),
       // 8. FAB permanece aqui, pois é uma ação principal da HomeView
       floatingActionButton: _buildFAB(context),
@@ -134,19 +130,14 @@ class HomeView extends ConsumerWidget {
       icon: const Icon(Icons.add_location_alt),
       label: const Text('Criar Corrida'),
       onPressed: () {
-         Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const CreateRaceView(),
-            ),
-          );
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const CreateRaceView()),
+        );
         // O código anterior com showModalBottomSheet foi removido,
         // pois o FAB agora vai direto para a tela de criação.
         // Se precisar do bottom sheet novamente, pode adaptá-lo.
       },
     );
   }
-
-  // Os métodos _buildRaceCard, _buildRaceInfoRow e _showJoinConfirmationDialog
-  // foram movidos para dentro do componente RaceCard
 }
