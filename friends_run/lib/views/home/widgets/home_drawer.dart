@@ -108,11 +108,6 @@ class HomeDrawer extends ConsumerWidget {
               padding: EdgeInsets.zero,
               children: [
                 _buildDrawerItem(
-                  icon: Icons.home,
-                  title: 'Início',
-                  onTap: () => Navigator.pop(context),
-                ),
-                _buildDrawerItem(
                   icon: Icons.person,
                   title: 'Meu Perfil',
                   onTap: () {
@@ -132,36 +127,11 @@ class HomeDrawer extends ConsumerWidget {
                   },
                 ),
                 _buildDrawerItem(
-                  icon: Icons.group,
-                  title: 'Meus Grupos',
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.pushNamed(context, '/groups');
-                  },
-                ),
-                _buildDrawerItem(
                   icon: Icons.leaderboard,
                   title: 'Estatísticas',
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, '/stats');
-                  },
-                ),
-                const Divider(color: AppColors.white),
-                _buildDrawerItem(
-                  icon: Icons.settings,
-                  title: 'Configurações',
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.pushNamed(context, '/settings');
-                  },
-                ),
-                _buildDrawerItem(
-                  icon: Icons.help,
-                  title: 'Ajuda',
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.pushNamed(context, '/help');
                   },
                 ),
                 const Divider(color: AppColors.white),
