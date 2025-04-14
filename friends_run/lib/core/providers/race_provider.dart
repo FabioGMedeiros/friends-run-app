@@ -1,47 +1,41 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:friends_run/core/services/race_service.dart';
 import 'package:friends_run/models/race/race_model.dart';
 import 'package:friends_run/models/user/app_user.dart';
 
-class RaceProvider with ChangeNotifier {
-  final RaceService _raceService = RaceService();
-  List<Race> _races = [];
-  bool _isLoading = false;
-  String? _error;
+final raceProvider = StateNotifierProvider<RaceNotifier, RaceState>((ref) {
+  return RaceNotifier(RaceService());
+});
 
-  List<Race> get races => _races;
-  bool get isLoading => _isLoading;
-  String? get error => _error;
+class RaceNotifier extends StateNotifier<RaceState> {
+  final RaceService _raceService;
+
+  RaceNotifier(this._raceService) : super(RaceState.initial());
 
   Future<void> loadRaces() async {
-    _isLoading = true;
-    notifyListeners();
-
+    state = state.copyWith(isLoading: true, error: null);
+    
     try {
-      // Aqui você pode carregar as corridas iniciais se necessário
-      // Ou apenas configurar os listeners
-      _error = null;
+      // Lógica para carregar corridas iniciais se necessário
+      state = state.copyWith(isLoading: false);
     } catch (e) {
-      _error = e.toString();
-    } finally {
-      _isLoading = false;
-      notifyListeners();
+      state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 
-  Stream<List<Race>> getRacesStream() {
+  Stream<List<Race>> racesStream() {
     return _raceService.racesStream;
   }
 
-  Stream<List<Race>> getRacesByGroup(String groupId) {
+  Stream<List<Race>> racesByGroup(String groupId) {
     return _raceService.getRacesByGroup(groupId);
   }
 
-  Stream<List<Race>> getRacesByOwner(String ownerId) {
+  Stream<List<Race>> racesByOwner(String ownerId) {
     return _raceService.getRacesByOwner(ownerId);
   }
 
-  Stream<List<Race>> getRacesByParticipant(String userId) {
+  Stream<List<Race>> racesByParticipant(String userId) {
     return _raceService.getRacesByParticipant(userId);
   }
 
@@ -54,9 +48,8 @@ class RaceProvider with ChangeNotifier {
     bool isPrivate = false,
     String? groupId,
   }) async {
-    _isLoading = true;
-    notifyListeners();
-
+    state = state.copyWith(isLoading: true, error: null);
+    
     try {
       final createdRace = await _raceService.createRace(
         title: title,
@@ -67,55 +60,44 @@ class RaceProvider with ChangeNotifier {
         isPrivate: isPrivate,
         groupId: groupId,
       );
-      _error = null;
+      
+      state = state.copyWith(isLoading: false);
       return createdRace;
     } catch (e) {
-      _error = e.toString();
+      state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
     }
   }
 
   Future<void> updateRace(Race race) async {
-    _isLoading = true;
-    notifyListeners();
-
+    state = state.copyWith(isLoading: true, error: null);
+    
     try {
       await _raceService.updateRace(race);
-      _error = null;
+      state = state.copyWith(isLoading: false);
     } catch (e) {
-      _error = e.toString();
+      state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
     }
   }
 
   Future<void> deleteRace(String id) async {
-    _isLoading = true;
-    notifyListeners();
-
+    state = state.copyWith(isLoading: true, error: null);
+    
     try {
       await _raceService.deleteRace(id);
-      _error = null;
+      state = state.copyWith(isLoading: false);
     } catch (e) {
-      _error = e.toString();
+      state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
     }
   }
 
   Future<void> addParticipant(String raceId, String userId) async {
     try {
       await _raceService.addParticipant(raceId, userId);
-      _error = null;
     } catch (e) {
-      _error = e.toString();
+      state = state.copyWith(error: e.toString());
       rethrow;
     }
   }
@@ -123,9 +105,8 @@ class RaceProvider with ChangeNotifier {
   Future<void> removeParticipant(String raceId, String userId) async {
     try {
       await _raceService.removeParticipant(raceId, userId);
-      _error = null;
     } catch (e) {
-      _error = e.toString();
+      state = state.copyWith(error: e.toString());
       rethrow;
     }
   }
@@ -133,9 +114,8 @@ class RaceProvider with ChangeNotifier {
   Future<void> addParticipationRequest(String raceId, String userId) async {
     try {
       await _raceService.addParticipationRequest(raceId, userId);
-      _error = null;
     } catch (e) {
-      _error = e.toString();
+      state = state.copyWith(error: e.toString());
       rethrow;
     }
   }
@@ -143,10 +123,41 @@ class RaceProvider with ChangeNotifier {
   Future<void> approveParticipant(String raceId, String userId) async {
     try {
       await _raceService.approveParticipant(raceId, userId);
-      _error = null;
     } catch (e) {
-      _error = e.toString();
+      state = state.copyWith(error: e.toString());
       rethrow;
     }
+  }
+}
+
+class RaceState {
+  final List<Race> races;
+  final bool isLoading;
+  final String? error;
+
+  RaceState({
+    required this.races,
+    required this.isLoading,
+    this.error,
+  });
+
+  factory RaceState.initial() {
+    return RaceState(
+      races: [],
+      isLoading: false,
+      error: null,
+    );
+  }
+
+  RaceState copyWith({
+    List<Race>? races,
+    bool? isLoading,
+    String? error,
+  }) {
+    return RaceState(
+      races: races ?? this.races,
+      isLoading: isLoading ?? this.isLoading,
+      error: error ?? this.error,
+    );
   }
 }
