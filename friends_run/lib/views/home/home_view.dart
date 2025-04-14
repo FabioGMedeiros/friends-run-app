@@ -8,6 +8,7 @@ import 'package:friends_run/core/services/auth_service.dart';
 import 'package:friends_run/models/user/app_user.dart';
 import 'package:friends_run/views/auth/auth_main_view.dart';
 import 'package:friends_run/views/profile/profile_view.dart';
+import 'package:geolocator/geolocator.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({super.key});
@@ -27,34 +28,59 @@ class _HomeViewState extends State<HomeView> {
   double? _userLongitude;
 
   @override
-  void initState() {
-    super.initState();
-    _getUserLocationAndRaces();
-    _userFuture = _loadUser();
-  }
+void initState() {
+  super.initState();
+  _userFuture = _loadUser();
+  _getUserLocationAndRaces();
+}
 
-  Future<void> _getUserLocationAndRaces() async {
-    try {
-      final location = await _locationService.getCurrentLocation();
-      setState(() {
-        _userLatitude = location.latitude;
-        _userLongitude = location.longitude;
-        _isLoadingLocation = false;
-      });
+Future<void> _getUserLocationAndRaces() async {
+  try {
+    final location = await _locationService.getCurrentLocation();
 
+    setState(() {
+      _userLatitude = location.latitude;
+      _userLongitude = location.longitude;
+      _isLoadingLocation = false;
       _racesFuture = _raceService.getNearbyRaces(
-        userLatitude: _userLatitude!,
-        userLongitude: _userLongitude!,
+        Position(
+          latitude: _userLatitude!,
+          longitude: _userLongitude!,
+          timestamp: DateTime.now(),
+          accuracy: 0,
+          altitude: 0,
+          heading: 0,
+          speed: 0,
+          speedAccuracy: 0,
+          altitudeAccuracy: 0,
+          headingAccuracy: 0,
+        ),
       );
-    } catch (e) {
-      debugPrint('Erro ao obter localização: $e');
-      setState(() => _isLoadingLocation = false);
+    });
+  } catch (e) {
+    debugPrint('Erro ao obter localização: $e');
+    setState(() {
+      _isLoadingLocation = false;
+      _userLatitude = -23.5505;
+      _userLongitude = -46.6333;
       _racesFuture = _raceService.getNearbyRaces(
-        userLatitude: -23.5505, // Fallback para São Paulo
-        userLongitude: -46.6333,
+        Position(
+          latitude: _userLatitude!,
+          longitude: _userLongitude!,
+          timestamp: DateTime.now(),
+          accuracy: 0,
+          altitude: 0,
+          heading: 0,
+          speed: 0,
+          speedAccuracy: 0,
+          altitudeAccuracy: 0,
+          headingAccuracy: 0,
+        ),
       );
-    }
+    });
   }
+}
+
 
   Future<AppUser?> _loadUser() async {
     try {
