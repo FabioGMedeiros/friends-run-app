@@ -7,6 +7,7 @@ import 'package:friends_run/core/utils/colors.dart';
 import 'package:friends_run/core/services/auth_service.dart';
 import 'package:friends_run/models/user/app_user.dart';
 import 'package:friends_run/views/auth/auth_main_view.dart';
+import 'package:friends_run/views/profile/profile_view.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({super.key});
@@ -180,8 +181,12 @@ class _HomeViewState extends State<HomeView> {
                       icon: Icons.person,
                       title: 'Meu Perfil',
                       onTap: () {
-                        Navigator.pop(context);
-                        Navigator.pushNamed(context, '/profile');
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ProfileView(),
+                          ),
+                        );
                       },
                     ),
                     _buildDrawerItem(
