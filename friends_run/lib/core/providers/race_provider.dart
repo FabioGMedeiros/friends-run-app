@@ -2,21 +2,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:friends_run/core/services/race_service.dart';
 import 'package:friends_run/models/race/race_model.dart';
 import 'package:friends_run/models/user/app_user.dart';
+import 'package:friends_run/core/providers/auth_provider.dart';
 import 'package:meta/meta.dart';
 
 //----------------------------------------------------------------------
 // 0. Enum for Race Action Types
 //----------------------------------------------------------------------
 enum RaceActionType {
-  join,     // Para entrar em corrida pública
-  leave,    // Para sair da corrida
-  request,  // Para solicitar entrada em corrida privada
-  approve,  // Para aprovar participante (se houver botão)
-  reject,  // Para rejeitar participante (se houver botão)
-  create,   // Para criar corrida
-  update,   // Para atualizar corrida
-  delete,   // Para deletar corrida
-  none      // Nenhuma ação específica em andamento
+  join, // Para entrar em corrida pública
+  leave, // Para sair da corrida
+  request, // Para solicitar entrada em corrida privada
+  approve, // Para aprovar participante (se houver botão)
+  reject, // Para rejeitar participante (se houver botão)
+  create, // Para criar corrida
+  update, // Para atualizar corrida
+  delete, // Para deletar corrida
+  none, // Nenhuma ação específica em andamento
 }
 
 //----------------------------------------------------------------------
@@ -62,8 +63,7 @@ class RaceActionState {
           actionType == other.actionType;
 
   @override
-  int get hashCode =>
-      isLoading.hashCode ^ error.hashCode ^ actionType.hashCode;
+  int get hashCode => isLoading.hashCode ^ error.hashCode ^ actionType.hashCode;
 }
 
 //----------------------------------------------------------------------
@@ -77,9 +77,14 @@ class RaceNotifier extends StateNotifier<RaceActionState> {
 
   // --- Stream Methods ---
   Stream<List<Race>> racesStream() => _raceService.racesStream;
-  Stream<List<Race>> racesByGroup(String groupId) => _raceService.getRacesByGroup(groupId);
-  Stream<List<Race>> racesByOwner(String ownerId) => _raceService.getRacesByOwner(ownerId);
-  Stream<List<Race>> racesByParticipant(String userId) => _raceService.getRacesByParticipant(userId);
+  Stream<List<Race>> racesByGroup(String groupId) =>
+      _raceService.getRacesByGroup(groupId);
+  Stream<List<Race>> racesByOwner(String ownerId) =>
+      _raceService.getRacesByOwner(ownerId);
+  Stream<List<Race>> racesByParticipant(String userId) =>
+      _raceService.getRacesByParticipant(userId);
+  Stream<List<Race>> racesByParticipantWithoutOrder(String userId) =>
+      _raceService.getRacesByParticipantWithoutOrder(userId);
 
   // --- Action Methods ---
 
@@ -95,7 +100,7 @@ class RaceNotifier extends StateNotifier<RaceActionState> {
     state = state.copyWith(
       isLoading: true,
       actionType: RaceActionType.create,
-      clearError: true
+      clearError: true,
     );
     try {
       final createdRace = await _raceService.createRace(
@@ -113,7 +118,7 @@ class RaceNotifier extends StateNotifier<RaceActionState> {
       state = state.copyWith(
         isLoading: false,
         actionType: RaceActionType.none,
-        error: "Erro ao criar corrida: ${e.toString()}"
+        error: "Erro ao criar corrida: ${e.toString()}",
       );
       return null;
     }
@@ -123,7 +128,7 @@ class RaceNotifier extends StateNotifier<RaceActionState> {
     state = state.copyWith(
       isLoading: true,
       actionType: RaceActionType.update,
-      clearError: true
+      clearError: true,
     );
     try {
       await _raceService.updateRace(race);
@@ -133,7 +138,7 @@ class RaceNotifier extends StateNotifier<RaceActionState> {
       state = state.copyWith(
         isLoading: false,
         actionType: RaceActionType.none,
-        error: "Erro ao atualizar corrida: ${e.toString()}"
+        error: "Erro ao atualizar corrida: ${e.toString()}",
       );
       return false;
     }
@@ -143,7 +148,7 @@ class RaceNotifier extends StateNotifier<RaceActionState> {
     state = state.copyWith(
       isLoading: true,
       actionType: RaceActionType.leave,
-      clearError: true
+      clearError: true,
     );
     try {
       await _raceService.leaveRace(raceId, userId);
@@ -153,7 +158,8 @@ class RaceNotifier extends StateNotifier<RaceActionState> {
       state = state.copyWith(
         isLoading: false,
         actionType: RaceActionType.none,
-        error: "Erro ao sair da corrida: ${e.toString().replaceFirst("Exception: ", "")}"
+        error:
+            "Erro ao sair da corrida: ${e.toString().replaceFirst("Exception: ", "")}",
       );
       return false;
     }
@@ -163,7 +169,7 @@ class RaceNotifier extends StateNotifier<RaceActionState> {
     state = state.copyWith(
       isLoading: true,
       actionType: RaceActionType.delete,
-      clearError: true
+      clearError: true,
     );
     try {
       await _raceService.deleteRace(id);
@@ -173,7 +179,7 @@ class RaceNotifier extends StateNotifier<RaceActionState> {
       state = state.copyWith(
         isLoading: false,
         actionType: RaceActionType.none,
-        error: "Erro ao deletar corrida: ${e.toString()}"
+        error: "Erro ao deletar corrida: ${e.toString()}",
       );
       return false;
     }
@@ -183,7 +189,7 @@ class RaceNotifier extends StateNotifier<RaceActionState> {
     state = state.copyWith(
       isLoading: true,
       actionType: RaceActionType.join,
-      clearError: true
+      clearError: true,
     );
     try {
       await _raceService.addParticipant(raceId, userId);
@@ -193,7 +199,7 @@ class RaceNotifier extends StateNotifier<RaceActionState> {
       state = state.copyWith(
         isLoading: false,
         actionType: RaceActionType.none,
-        error: "Erro ao adicionar participante: ${e.toString()}"
+        error: "Erro ao adicionar participante: ${e.toString()}",
       );
       return false;
     }
@@ -204,7 +210,9 @@ class RaceNotifier extends StateNotifier<RaceActionState> {
       await _raceService.removeParticipant(raceId, userId);
       return true;
     } catch (e) {
-      state = state.copyWith(error: "Erro ao remover participante: ${e.toString()}");
+      state = state.copyWith(
+        error: "Erro ao remover participante: ${e.toString()}",
+      );
       return false;
     }
   }
@@ -213,7 +221,7 @@ class RaceNotifier extends StateNotifier<RaceActionState> {
     state = state.copyWith(
       isLoading: true,
       actionType: RaceActionType.request,
-      clearError: true
+      clearError: true,
     );
     try {
       await _raceService.addParticipationRequest(raceId, userId);
@@ -223,7 +231,7 @@ class RaceNotifier extends StateNotifier<RaceActionState> {
       state = state.copyWith(
         isLoading: false,
         actionType: RaceActionType.none,
-        error: "Erro ao solicitar participação: ${e.toString()}"
+        error: "Erro ao solicitar participação: ${e.toString()}",
       );
       return false;
     }
@@ -238,7 +246,11 @@ class RaceNotifier extends StateNotifier<RaceActionState> {
   // --- Método para Rejeitar Solicitação ---
   Future<bool> rejectParticipationRequest(String raceId, String userId) async {
     // Define estado ANTES da chamada
-    state = state.copyWith(isLoading: true, actionType: RaceActionType.reject, clearError: true);
+    state = state.copyWith(
+      isLoading: true,
+      actionType: RaceActionType.reject,
+      clearError: true,
+    );
     try {
       // Chama o método do serviço que criamos
       await _raceService.removePendingParticipant(raceId, userId);
@@ -248,31 +260,37 @@ class RaceNotifier extends StateNotifier<RaceActionState> {
     } catch (e) {
       // Erro: Reseta estado e define erro
       state = state.copyWith(
-          isLoading: false,
-          actionType: RaceActionType.none,
-          error: e.toString().replaceFirst("Exception: ", ""));
+        isLoading: false,
+        actionType: RaceActionType.none,
+        error: e.toString().replaceFirst("Exception: ", ""),
+      );
       return false;
     }
   }
 
-   // --- Método para Aprovar Solicitação (ajustado para gerenciar estado) ---
-   Future<bool> approveParticipant(String raceId, String userId) async {
-     // Define estado ANTES da chamada
-     state = state.copyWith(isLoading: true, actionType: RaceActionType.approve, clearError: true);
-     try {
-       await _raceService.approveParticipant(raceId, userId);
-       // Sucesso: Reseta estado
-       state = state.copyWith(isLoading: false, actionType: RaceActionType.none);
-       return true;
-     } catch (e) {
-       // Erro: Reseta estado e define erro
-       state = state.copyWith(
-           isLoading: false,
-           actionType: RaceActionType.none,
-           error: e.toString().replaceFirst("Exception: ", ""));
-       return false;
-     }
-   }
+  // --- Método para Aprovar Solicitação (ajustado para gerenciar estado) ---
+  Future<bool> approveParticipant(String raceId, String userId) async {
+    // Define estado ANTES da chamada
+    state = state.copyWith(
+      isLoading: true,
+      actionType: RaceActionType.approve,
+      clearError: true,
+    );
+    try {
+      await _raceService.approveParticipant(raceId, userId);
+      // Sucesso: Reseta estado
+      state = state.copyWith(isLoading: false, actionType: RaceActionType.none);
+      return true;
+    } catch (e) {
+      // Erro: Reseta estado e define erro
+      state = state.copyWith(
+        isLoading: false,
+        actionType: RaceActionType.none,
+        error: e.toString().replaceFirst("Exception: ", ""),
+      );
+      return false;
+    }
+  }
 }
 
 //----------------------------------------------------------------------
@@ -285,10 +303,11 @@ final raceServiceProvider = Provider<RaceService>((ref) {
 });
 
 // Provider for RaceNotifier
-final raceNotifierProvider = StateNotifierProvider<RaceNotifier, RaceActionState>((ref) {
-  final raceService = ref.watch(raceServiceProvider);
-  return RaceNotifier(raceService);
-});
+final raceNotifierProvider =
+    StateNotifierProvider<RaceNotifier, RaceActionState>((ref) {
+      final raceService = ref.watch(raceServiceProvider);
+      return RaceNotifier(raceService);
+    });
 
 // --- Stream Providers ---
 final allRacesStreamProvider = StreamProvider.autoDispose<List<Race>>((ref) {
@@ -296,23 +315,37 @@ final allRacesStreamProvider = StreamProvider.autoDispose<List<Race>>((ref) {
   return ref.read(raceNotifierProvider.notifier).racesStream();
 });
 
-final groupRacesStreamProvider = StreamProvider.family.autoDispose<List<Race>, String>((ref, groupId) {
-  ref.watch(raceNotifierProvider);
-  return ref.read(raceNotifierProvider.notifier).racesByGroup(groupId);
-});
+final groupRacesStreamProvider = StreamProvider.family
+    .autoDispose<List<Race>, String>((ref, groupId) {
+      ref.watch(raceNotifierProvider);
+      return ref.read(raceNotifierProvider.notifier).racesByGroup(groupId);
+    });
 
-final ownerRacesStreamProvider = StreamProvider.family.autoDispose<List<Race>, String>((ref, ownerId) {
-  ref.watch(raceNotifierProvider);
-  return ref.read(raceNotifierProvider.notifier).racesByOwner(ownerId);
-});
+final ownerRacesStreamProvider = StreamProvider.family
+    .autoDispose<List<Race>, String>((ref, ownerId) {
+      ref.watch(raceNotifierProvider);
+      return ref.read(raceNotifierProvider.notifier).racesByOwner(ownerId);
+    });
 
-final participantRacesStreamProvider = StreamProvider.family.autoDispose<List<Race>, String>((ref, userId) {
-  ref.watch(raceNotifierProvider);
-  return ref.read(raceNotifierProvider.notifier).racesByParticipant(userId);
-});
+final participantRacesStreamProvider = StreamProvider.family
+    .autoDispose<List<Race>, String>((ref, userId) {
+      ref.watch(raceNotifierProvider);
+      return ref.read(raceNotifierProvider.notifier).racesByParticipant(userId);
+    });
+
+final participantRacesNoOrderStreamProvider = StreamProvider.family
+    .autoDispose<List<Race>, String>((ref, userId) {
+      ref.watch(raceNotifierProvider);
+      return ref
+          .read(raceNotifierProvider.notifier)
+          .racesByParticipantWithoutOrder(userId);
+    });
 
 // --- Race Details Provider ---
-final raceDetailsProvider = FutureProvider.family.autoDispose<Race?, String>((ref, raceId) async {
+final raceDetailsProvider = FutureProvider.family.autoDispose<Race?, String>((
+  ref,
+  raceId,
+) async {
   final raceService = ref.watch(raceServiceProvider);
   try {
     return await raceService.getRace(raceId);
@@ -320,4 +353,44 @@ final raceDetailsProvider = FutureProvider.family.autoDispose<Race?, String>((re
     print("Erro ao buscar detalhes da corrida $raceId: $e");
     return null;
   }
+});
+
+final myRacesProvider = StreamProvider.autoDispose<List<Race>>((ref) {
+  // 1. Observa o provider do usuário atual
+  final userAsyncValue = ref.watch(currentUserProvider);
+
+  // 2. Retorna o stream apropriado baseado no estado do usuário
+  return userAsyncValue.when(
+    data: (user) {
+      // 3. Se o usuário NÃO está logado, retorna um stream com lista vazia
+      if (user == null) {
+        print("[myRacesProvider] Usuário não logado. Retornando stream vazio.");
+        return Stream.value(<Race>[]);
+      }
+      // 4. Se o usuário ESTÁ logado, usa o participantRacesStreamProvider existente!
+      //    O watch aqui garante que se o stream da família emitir um novo valor,
+      //    o myRacesProvider também será reconstruído/reemitirá.
+      print(
+        "[myRacesProvider] Usuário ${user.uid} logado. Observando participantRacesStreamProvider(${user.uid}).",
+      );
+      // Simplesmente delegamos para o provider da família existente.
+      // Riverpod gerencia a assinatura do stream subjacente para nós.
+      // Quando participantRacesStreamProvider(user.uid) emitir, myRacesProvider emitirá.
+      return ref.watch(participantRacesNoOrderStreamProvider(user.uid).stream);
+    },
+    loading: () {
+      // 5. Enquanto o usuário carrega, retorna um stream vazio temporariamente
+      print(
+        "[myRacesProvider] Estado do usuário carregando. Retornando stream vazio.",
+      );
+      return Stream.value(<Race>[]);
+    },
+    error: (error, stackTrace) {
+      // 6. Se houver erro ao carregar o usuário, retorna um stream com erro
+      print(
+        "[myRacesProvider] Erro ao carregar usuário: $error. Retornando stream com erro.",
+      );
+      return Stream.error(error, stackTrace);
+    },
+  );
 });
