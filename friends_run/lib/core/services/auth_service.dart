@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-// Importe os serviços e modelos necessários
 import 'package:friends_run/core/services/firebase_storage_service.dart'; // Certifique-se que este serviço existe e tem os métodos usados
 import 'package:friends_run/models/user/app_user.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -11,7 +10,6 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   // Cache simples para evitar buscas repetidas no Firestore pelo mesmo ID rapidamente.
-  // Pode ser mais sofisticado se necessário (ex: usando um package de cache).
   final Map<String, AppUser> _userCache = {};
 
   /// Registra um novo usuário com email, senha, nome e imagem de perfil opcional.
@@ -37,9 +35,7 @@ class AuthService {
       String imageUrl;
       if (profileImage == null) {
         debugPrint("--- AuthService.registerUser: Nenhuma imagem fornecida, usando placeholder. ---");
-        // Usa URL explícita do placeholder
         imageUrl = FirebaseStorageService.getPlaceholderImageUrl();
-         // OU: 'https://firebasestorage.googleapis.com/v0/b/friends-run-f4061.firebasestorage.app/o/profile_placeholder.png?alt=media&token=5943558c-0747-4250-a601-999080a820cb';
 
       } else {
         debugPrint("--- AuthService.registerUser: Imagem fornecida, chamando uploadProfileImage... ---");
@@ -49,11 +45,8 @@ class AuthService {
           imageFile: profileImage,
         );
         debugPrint("--- AuthService.registerUser: Upload retornou URL: $imageUrl ---");
-         // Verificação se upload falhou silenciosamente (opcional)
          if (imageUrl == FirebaseStorageService.getPlaceholderImageUrl()) {
             debugPrint("--- AuthService.registerUser: ALERTA - Upload retornou URL do placeholder, usando-a mesmo assim. ---");
-            // Poderia lançar um erro aqui se o upload for crítico
-            // throw Exception("Falha no upload da imagem.");
          }
       }
 
@@ -78,13 +71,10 @@ class AuthService {
       return appUser;
 
     } on FirebaseAuthException catch (e) {
-      // Trata erros específicos do FirebaseAuth de forma mais granular
       debugPrint("--- AuthService.registerUser: ERRO FirebaseAuth: ${e.code} - ${e.message} ---");
-      // Retorna null para ser tratado pelo Notifier/UI
       return null;
     } catch (e) {
       debugPrint("--- AuthService.registerUser: ERRO GERAL: $e ---");
-       // Retorna null para outros erros
       return null;
     }
   }
@@ -109,10 +99,9 @@ class AuthService {
       final appUser = await getUserById(uid);
 
       if (appUser == null) {
-        // Usuário autenticado mas sem registro no Firestore - estado inconsistente
         debugPrint("--- AuthService.loginUser: ERRO - Usuário autenticado ($uid) mas não encontrado no Firestore. Deslogando. ---");
         await logout(); // Desloga para evitar estado inconsistente
-        return null; // Retorna null para indicar falha
+        return null;
       }
 
       debugPrint("--- AuthService.loginUser: AppUser encontrado. END (Sucesso) ---");
@@ -120,11 +109,10 @@ class AuthService {
 
     } on FirebaseAuthException catch (e) {
       debugPrint("--- AuthService.loginUser: ERRO FirebaseAuth: ${e.code} - ${e.message} ---");
-      // Exemplos de códigos: 'user-not-found', 'wrong-password', 'invalid-credential', 'invalid-email'
-      return null; // Retorna null para ser tratado pelo Notifier/UI
+      return null; 
     } catch (e) {
       debugPrint("--- AuthService.loginUser: ERRO GERAL: $e ---");
-      return null; // Retorna null para outros erros
+      return null;
     }
   }
 
@@ -136,7 +124,7 @@ class AuthService {
       final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
       if (googleUser == null) {
         debugPrint("--- AuthService.signInWithGoogle: Login com Google cancelado pelo usuário. ---");
-        return null; // Usuário cancelou
+        return null;
       }
       debugPrint("--- AuthService.signInWithGoogle: Usuário Google obtido: ${googleUser.displayName} ---");
 
@@ -151,7 +139,7 @@ class AuthService {
 
       // 3. Faz login no Firebase com a credencial Google
       final UserCredential userCred = await _auth.signInWithCredential(credential);
-      final User user = userCred.user!; // Garantido não ser nulo aqui
+      final User user = userCred.user!;
       final String uid = user.uid;
       debugPrint("--- AuthService.signInWithGoogle: Logado no Firebase Auth (UID: $uid). Verificando Firestore... ---");
 
@@ -159,31 +147,27 @@ class AuthService {
       AppUser? appUser = await getUserById(uid);
 
       if (appUser == null) {
-        // Novo usuário via Google, cria o AppUser e salva no Firestore
         debugPrint("--- AuthService.signInWithGoogle: Novo usuário via Google. Criando doc Firestore... ---");
-        // Define uma URL de placeholder se o Google não fornecer uma foto
         final profilePic = user.photoURL ?? FirebaseStorageService.getPlaceholderImageUrl();
 
         appUser = AppUser(
           uid: uid,
-          name: user.displayName ?? 'Usuário Google', // Nome padrão se não houver
-          email: user.email ?? '', // Email DEVE existir vindo do Google
+          name: user.displayName ?? 'Usuário Google',
+          email: user.email ?? '',
           profileImageUrl: profilePic,
         );
 
         await _firestore.collection('users').doc(uid).set(appUser.toMap());
-        _userCache[uid] = appUser; // Adiciona ao cache
+        _userCache[uid] = appUser;
          debugPrint("--- AuthService.signInWithGoogle: Novo usuário salvo e cacheado. ---");
       } else {
          debugPrint("--- AuthService.signInWithGoogle: Usuário existente via Google: ${appUser.name} ---");
-         // Opcional: Atualizar dados do Firestore com os do Google (nome, foto) se desejar
          bool needsUpdate = false;
          Map<String, dynamic> updates = {};
          if (appUser.name != user.displayName && user.displayName != null) {
             updates['name'] = user.displayName;
             needsUpdate = true;
          }
-         // Usa placeholder como fallback seguro ao comparar URL da foto
          final googlePhotoUrl = user.photoURL ?? FirebaseStorageService.getPlaceholderImageUrl();
          if (appUser.profileImageUrl != googlePhotoUrl) {
              updates['profileImageUrl'] = googlePhotoUrl;
@@ -192,12 +176,10 @@ class AuthService {
          if (needsUpdate) {
              debugPrint("--- AuthService.signInWithGoogle: Atualizando dados do usuário existente com dados do Google: $updates ---");
              await _firestore.collection('users').doc(uid).update(updates);
-             // Atualiza o cache com os novos dados
              _userCache[uid] = appUser.copyWith(
                  name: updates['name'] ?? appUser.name,
                  profileImageUrl: updates['profileImageUrl'] ?? appUser.profileImageUrl,
              );
-             // Busca novamente para garantir que temos o objeto mais recente (após copyWith)
              appUser = _userCache[uid];
          }
       }
@@ -207,13 +189,11 @@ class AuthService {
 
     } on FirebaseAuthException catch (e) {
        debugPrint("--- AuthService.signInWithGoogle: ERRO FirebaseAuth: ${e.code} - ${e.message} ---");
-       // Exemplo: 'account-exists-with-different-credential'
-       return null; // Retorna null para ser tratado pelo Notifier/UI
+       return null;
     } catch (e) {
       debugPrint('--- AuthService.signInWithGoogle: ERRO GERAL: $e ---');
-      // Tenta deslogar do Google em caso de erro desconhecido
       try { await GoogleSignIn().signOut(); } catch (_) {}
-      return null; // Retorna null para ser tratado pelo Notifier/UI
+      return null;
     }
   }
 
@@ -221,11 +201,9 @@ class AuthService {
   Future<void> logout() async {
     debugPrint("--- AuthService.logout START ---");
     try {
-      // Limpa o cache local ao deslogar
       _userCache.clear();
       debugPrint("--- AuthService.logout: Cache limpo. ---");
 
-      // Desloga do Google se estiver logado com ele
       final GoogleSignIn googleSignIn = GoogleSignIn();
       if (await googleSignIn.isSignedIn()) {
         await googleSignIn.signOut();
@@ -233,13 +211,10 @@ class AuthService {
       } else {
          debugPrint("--- AuthService.logout: Não estava logado com Google. ---");
       }
-      // Desloga do Firebase Auth (sempre)
       await _auth.signOut();
       debugPrint("--- AuthService.logout: Firebase Auth Signed Out ---");
       debugPrint("--- AuthService.logout END ---");
     } catch (e) {
-      // Loga o erro mas não relança, pois o objetivo principal (deslogar do Auth)
-      // pode ter sido alcançado mesmo com erro no Google SignOut.
       debugPrint('--- AuthService.logout: ERRO (não relançado): $e ---');
     }
   }
@@ -249,17 +224,14 @@ class AuthService {
     try {
       final user = _auth.currentUser;
       if (user == null) {
-        // debugPrint("Nenhum usuário Firebase autenticado."); // Log opcional
         return null;
       }
 
-      // Tenta obter do cache primeiro
       if (_userCache.containsKey(user.uid)) {
          debugPrint("Usuário atual encontrado no cache: ${user.uid}");
          return _userCache[user.uid];
       }
 
-      // Se não está no cache, busca usando getUserById (que também usa cache)
       debugPrint("Buscando usuário atual (via getUserById): ${user.uid}");
       final appUser = await getUserById(user.uid); // Reutiliza a busca e o cache
       return appUser;
@@ -272,7 +244,6 @@ class AuthService {
 
   /// Busca um usuário específico no Firestore pelo seu UID, usando cache.
   Future<AppUser?> getUserById(String userId) async {
-    // Verifica o cache primeiro
     if (_userCache.containsKey(userId)) {
        debugPrint("Usuário encontrado no cache: $userId");
        return _userCache[userId];
@@ -284,17 +255,16 @@ class AuthService {
 
       if (doc.exists && doc.data() != null) {
         final appUser = AppUser.fromMap(doc.data()!);
-        // Adiciona ao cache após buscar com sucesso
         _userCache[userId] = appUser;
          debugPrint("Usuário $userId encontrado no Firestore e adicionado ao cache.");
         return appUser;
       } else {
         debugPrint("Usuário com ID $userId não encontrado no Firestore.");
-        return null; // Usuário não existe no Firestore
+        return null;
       }
     } catch (e) {
       debugPrint('Erro ao buscar usuário por ID ($userId): $e');
-      return null; // Erro durante a busca
+      return null;
     }
   }
 
@@ -315,9 +285,9 @@ class AuthService {
     }
 
     try {
-      final Map<String, dynamic> updates = {}; // Mapa para atualizações do Firestore
+      final Map<String, dynamic> updates = {};
       bool needsFirestoreUpdate = false;
-      AppUser? currentUserFromCache = _userCache[uid]; // Pega versão atual do cache (pode ser null)
+      AppUser? currentUserFromCache = _userCache[uid];
 
       // 1. Atualizar Nome (se diferente do cache ou se cache vazio)
       if (currentUserFromCache == null || name != currentUserFromCache.name) {
@@ -332,15 +302,12 @@ class AuthService {
       if (trimmedEmail.isNotEmpty && trimmedEmail.toLowerCase() != currentAuthEmail.toLowerCase()) {
          debugPrint("--- AuthService.updateUserProfile: Tentando atualizar email Auth de '$currentAuthEmail' para '$trimmedEmail' ---");
         try {
-          // Tenta atualizar com verificação (requer login recente)
           await user.verifyBeforeUpdateEmail(trimmedEmail);
            debugPrint("--- AuthService.updateUserProfile: Verificação de email enviada/atualização Auth iniciada. ---");
-          // Atualiza no Firestore (idealmente após confirmação, mas feito aqui por simplicidade)
           updates['email'] = trimmedEmail;
           needsFirestoreUpdate = true;
         } on FirebaseAuthException catch (e) {
            debugPrint("--- AuthService.updateUserProfile: ERRO FirebaseAuth ao atualizar email: ${e.code} ---");
-           // Transforma erros comuns em mensagens mais claras
            if (e.code == 'requires-recent-login') {
             throw Exception('Para alterar seu email, por favor, faça logout e login novamente.');
           } else if (e.code == 'email-already-in-use') {
@@ -354,7 +321,7 @@ class AuthService {
       }
 
       // 3. Atualizar Foto de Perfil (se nova imagem fornecida)
-      String? finalImageUrlForUpdate = null; // URL a ser salva no Firestore
+      String? finalImageUrlForUpdate = null;
       if (newProfileImage != null) {
          debugPrint("--- AuthService.updateUserProfile: Nova imagem fornecida. Fazendo upload... ---");
         try {
@@ -362,7 +329,6 @@ class AuthService {
               uid,
               imageFile: newProfileImage,
             );
-            // Verifica se o upload não falhou retornando o placeholder
             if (finalImageUrlForUpdate == FirebaseStorageService.getPlaceholderImageUrl()) {
                debugPrint("--- AuthService.updateUserProfile: ERRO - Upload da imagem falhou (serviço retornou placeholder). ---");
                throw Exception('Falha ao salvar a nova foto de perfil.');
@@ -384,7 +350,6 @@ class AuthService {
         await _firestore.collection('users').doc(uid).update(updates);
         debugPrint("--- AuthService.updateUserProfile: Firestore atualizado. ---");
 
-        // Atualiza o cache APÓS sucesso no Firestore
          if (_userCache.containsKey(uid)) {
              _userCache[uid] = _userCache[uid]!.copyWith(
                  name: updates['name'] ?? _userCache[uid]!.name,
@@ -399,22 +364,19 @@ class AuthService {
       }
 
       debugPrint("--- AuthService.updateUserProfile: END (Sucesso) ---");
-      return true; // Sucesso geral
+      return true;
 
     } on FirebaseException catch (e) {
        debugPrint("--- AuthService.updateUserProfile: ERRO FirebaseException: ${e.code} - ${e.message} ---");
-       // Se já lançamos exceção específica (email), não precisa lançar de novo
-       // Apenas relança outros erros Firebase
        if (e.message == null || !(e.message!.contains('logout e login') || e.message!.contains('email já está sendo utilizado'))) {
            throw Exception('Erro ao salvar (${e.code}). Verifique sua conexão.');
        } else {
-          rethrow; // Relança as exceções de email já tratadas
+          rethrow;
        }
     } catch (e) {
        debugPrint("--- AuthService.updateUserProfile: ERRO GERAL: $e ---");
-       // Tenta ser mais específico se possível
        if (e is Exception) {
-         throw e; // Relança a exceção original
+         throw e;
        }
        throw Exception('Ocorreu um erro inesperado ao salvar seu perfil.');
     }
@@ -429,8 +391,7 @@ class AuthService {
     final user = _auth.currentUser;
     if (user == null) return false;
     final providerData = user.providerData;
-    // Usa a constante do provider do Firebase Auth para segurança
     return providerData.any((info) => info.providerId == GoogleAuthProvider.PROVIDER_ID);
   }
 
-} // Fim da classe AuthService
+}

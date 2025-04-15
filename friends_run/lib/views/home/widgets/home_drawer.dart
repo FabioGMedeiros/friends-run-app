@@ -131,11 +131,11 @@ class HomeDrawer extends ConsumerWidget {
                   },
                 ),
                 _buildDrawerItem(
-                  icon: Icons.leaderboard,
-                  title: 'Estatísticas',
+                  icon: Icons.group,
+                  title: 'Meus Grupos',
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.pushNamed(context, '/stats');
+                    Navigator.pushNamed(context, '/groups');
                   },
                 ),
                 const Divider(color: AppColors.white),
