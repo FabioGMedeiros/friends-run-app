@@ -227,37 +227,39 @@ class RaceService {
   }
 
   /// Remove um usuário da lista de solicitações pendentes de uma corrida.
-    Future<void> removePendingParticipant(String raceId, String userId) async {
-        try {
-            await _firestore.collection('races').doc(raceId).update({
-                'pendingParticipants': FieldValue.arrayRemove([userId]),
-                'updatedAt': Timestamp.now(), // Atualiza data de modificação
-            });
-             print("Solicitação pendente de $userId removida da corrida $raceId");
-        } catch (e) {
-            print("Erro ao remover solicitação pendente: $e");
-            // Relança a exceção para ser tratada pelo Notifier
-            throw Exception("Falha ao remover solicitação pendente.");
-        }
+  Future<void> removePendingParticipant(String raceId, String userId) async {
+    try {
+      await _firestore.collection('races').doc(raceId).update({
+        'pendingParticipants': FieldValue.arrayRemove([userId]),
+        'updatedAt': Timestamp.now(), // Atualiza data de modificação
+      });
+      print("Solicitação pendente de $userId removida da corrida $raceId");
+    } catch (e) {
+      print("Erro ao remover solicitação pendente: $e");
+      // Relança a exceção para ser tratada pelo Notifier
+      throw Exception("Falha ao remover solicitação pendente.");
     }
+  }
 
-     // --- Método approveParticipant (precisa existir ou ser verificado) ---
-     Future<void> approveParticipant(String raceId, String userId) async {
-         try {
-             // Remove da lista de pendentes e adiciona à lista de participantes
-             // ATENÇÃO: Isso deve ser feito atomicamente se possível,
-             // mas uma atualização simples geralmente funciona bem.
-             await _firestore.collection('races').doc(raceId).update({
-                 'pendingParticipants': FieldValue.arrayRemove([userId]),
-                 'participants': FieldValue.arrayUnion([userId]), // Adiciona à lista principal
-                 'updatedAt': Timestamp.now(),
-             });
-              print("Participante $userId aprovado para a corrida $raceId");
-         } catch (e) {
-             print("Erro ao aprovar participante: $e");
-             throw Exception("Falha ao aprovar participante.");
-         }
-     }
+  // --- Método approveParticipant (precisa existir ou ser verificado) ---
+  Future<void> approveParticipant(String raceId, String userId) async {
+    try {
+      // Remove da lista de pendentes e adiciona à lista de participantes
+      // ATENÇÃO: Isso deve ser feito atomicamente se possível,
+      // mas uma atualização simples geralmente funciona bem.
+      await _firestore.collection('races').doc(raceId).update({
+        'pendingParticipants': FieldValue.arrayRemove([userId]),
+        'participants': FieldValue.arrayUnion([
+          userId,
+        ]), // Adiciona à lista principal
+        'updatedAt': Timestamp.now(),
+      });
+      print("Participante $userId aprovado para a corrida $raceId");
+    } catch (e) {
+      print("Erro ao aprovar participante: $e");
+      throw Exception("Falha ao aprovar participante.");
+    }
+  }
 
   Future<List<Race>> getNearbyRaces(
     Position userPosition, {
@@ -312,11 +314,13 @@ class RaceService {
     try {
       print("Tentando remover $userId da corrida $raceId");
       await _firestore.collection(_collectionName).doc(raceId).update({
-        'participants': FieldValue.arrayRemove([userId]), // Remove o ID do array
-         // Considerar: remover também de pendingParticipants se ele pudesse estar lá?
-         // 'pendingParticipants': FieldValue.arrayRemove([userId]),
+        'participants': FieldValue.arrayRemove([
+          userId,
+        ]), // Remove o ID do array
+        // Considerar: remover também de pendingParticipants se ele pudesse estar lá?
+        // 'pendingParticipants': FieldValue.arrayRemove([userId]),
       });
-       print("Usuário $userId removido com sucesso da corrida $raceId");
+      print("Usuário $userId removido com sucesso da corrida $raceId");
     } catch (e) {
       print("Erro ao remover participante $userId da corrida $raceId: $e");
       // Relança a exceção para ser tratada no Notifier/UI
