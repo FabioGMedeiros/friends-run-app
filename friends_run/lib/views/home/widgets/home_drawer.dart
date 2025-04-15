@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:friends_run/core/providers/auth_provider.dart';
 import 'package:friends_run/core/utils/colors.dart';
 import 'package:friends_run/views/auth/auth_main_view.dart';
+import 'package:friends_run/views/group/groups_list_view.dart';
 import 'package:friends_run/views/profile/my_races_view.dart';
 import 'package:friends_run/views/profile/profile_view.dart';
 
@@ -135,7 +136,20 @@ class HomeDrawer extends ConsumerWidget {
                   title: 'Meus Grupos',
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.pushNamed(context, '/groups');
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const GroupsListView(),
+                      ),
+                    );
+                  },
+                ),
+                _buildDrawerItem(
+                  icon: Icons.leaderboard,
+                  title: 'Estatísticas',
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/stats');
                   },
                 ),
                 const Divider(color: AppColors.white),
