@@ -4,10 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:friends_run/core/providers/auth_provider.dart';
 import 'package:friends_run/core/utils/colors.dart';
 import 'package:friends_run/views/auth/auth_main_view.dart';
+import 'package:friends_run/views/profile/my_races_view.dart';
 import 'package:friends_run/views/profile/profile_view.dart';
 
 class HomeDrawer extends ConsumerWidget {
-  const HomeDrawer(); 
+  const HomeDrawer({super.key});
 
   Future<void> _logout(BuildContext context, WidgetRef ref) async {
     try {
@@ -123,7 +124,10 @@ class HomeDrawer extends ConsumerWidget {
                   title: 'Minhas Corridas',
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.pushNamed(context, '/my-races');
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => MyRacesView()),
+                    );
                   },
                 ),
                 _buildDrawerItem(
