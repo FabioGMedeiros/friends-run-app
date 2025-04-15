@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:friends_run/core/providers/location_provider.dart';
 import 'package:friends_run/models/race/race_model.dart';
 import 'package:friends_run/core/providers/race_provider.dart';
 import 'package:friends_run/core/providers/auth_provider.dart';

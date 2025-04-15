@@ -4,42 +4,39 @@ import 'package:friends_run/models/race/race_model.dart';
 import 'package:friends_run/models/user/app_user.dart';
 import 'package:friends_run/core/providers/auth_provider.dart';
 import 'package:meta/meta.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:friends_run/core/providers/location_provider.dart';
 
-//----------------------------------------------------------------------
-// 0. Enum for Race Action Types
-//----------------------------------------------------------------------
 enum RaceActionType {
-  join, // Para entrar em corrida pública
-  leave, // Para sair da corrida
-  request, // Para solicitar entrada em corrida privada
-  approve, // Para aprovar participante (se houver botão)
-  reject, // Para rejeitar participante (se houver botão)
-  create, // Para criar corrida
-  update, // Para atualizar corrida
-  delete, // Para deletar corrida
-  none, // Nenhuma ação específica em andamento
+  join,
+  leave,
+  request,
+  approve,
+  reject,
+  create,
+  update,
+  delete,
+  none,
 }
 
-//----------------------------------------------------------------------
-// 1. State for Actions (Loading/Error/ActionType)
-//----------------------------------------------------------------------
+enum RaceFilterOption { todas, publicas, privadas }
+
+enum RaceSortCriteria { proximidade, distancia, data }
+
 @immutable
 class RaceActionState {
   final bool isLoading;
   final String? error;
   final RaceActionType actionType;
 
-  // Private constructor
   const RaceActionState._({
     this.isLoading = false,
     this.error,
     this.actionType = RaceActionType.none,
   });
 
-  // Initial state
   factory RaceActionState.initial() => const RaceActionState._();
 
-  // Copy with method
   RaceActionState copyWith({
     bool? isLoading,
     String? error,
@@ -66,16 +63,11 @@ class RaceActionState {
   int get hashCode => isLoading.hashCode ^ error.hashCode ^ actionType.hashCode;
 }
 
-//----------------------------------------------------------------------
-// 2. Refactored Notifier
-//    Manages RaceActionState and exposes action methods and streams
-//----------------------------------------------------------------------
 class RaceNotifier extends StateNotifier<RaceActionState> {
   final RaceService _raceService;
 
   RaceNotifier(this._raceService) : super(RaceActionState.initial());
 
-  // --- Stream Methods ---
   Stream<List<Race>> racesStream() => _raceService.racesStream;
   Stream<List<Race>> racesByGroup(String groupId) =>
       _raceService.getRacesByGroup(groupId);
@@ -85,8 +77,6 @@ class RaceNotifier extends StateNotifier<RaceActionState> {
       _raceService.getRacesByParticipant(userId);
   Stream<List<Race>> racesByParticipantWithoutOrder(String userId) =>
       _raceService.getRacesByParticipantWithoutOrder(userId);
-
-  // --- Action Methods ---
 
   Future<Race?> createRace({
     required String title,
@@ -243,22 +233,17 @@ class RaceNotifier extends StateNotifier<RaceActionState> {
     }
   }
 
-  // --- Método para Rejeitar Solicitação ---
   Future<bool> rejectParticipationRequest(String raceId, String userId) async {
-    // Define estado ANTES da chamada
     state = state.copyWith(
       isLoading: true,
       actionType: RaceActionType.reject,
       clearError: true,
     );
     try {
-      // Chama o método do serviço que criamos
       await _raceService.removePendingParticipant(raceId, userId);
-      // Sucesso: Reseta estado
       state = state.copyWith(isLoading: false, actionType: RaceActionType.none);
       return true;
     } catch (e) {
-      // Erro: Reseta estado e define erro
       state = state.copyWith(
         isLoading: false,
         actionType: RaceActionType.none,
@@ -268,9 +253,7 @@ class RaceNotifier extends StateNotifier<RaceActionState> {
     }
   }
 
-  // --- Método para Aprovar Solicitação (ajustado para gerenciar estado) ---
   Future<bool> approveParticipant(String raceId, String userId) async {
-    // Define estado ANTES da chamada
     state = state.copyWith(
       isLoading: true,
       actionType: RaceActionType.approve,
@@ -278,11 +261,9 @@ class RaceNotifier extends StateNotifier<RaceActionState> {
     );
     try {
       await _raceService.approveParticipant(raceId, userId);
-      // Sucesso: Reseta estado
       state = state.copyWith(isLoading: false, actionType: RaceActionType.none);
       return true;
     } catch (e) {
-      // Erro: Reseta estado e define erro
       state = state.copyWith(
         isLoading: false,
         actionType: RaceActionType.none,
@@ -293,23 +274,16 @@ class RaceNotifier extends StateNotifier<RaceActionState> {
   }
 }
 
-//----------------------------------------------------------------------
-// 3. Global Providers
-//----------------------------------------------------------------------
-
-// Provider for RaceService
 final raceServiceProvider = Provider<RaceService>((ref) {
   return RaceService();
 });
 
-// Provider for RaceNotifier
 final raceNotifierProvider =
     StateNotifierProvider<RaceNotifier, RaceActionState>((ref) {
       final raceService = ref.watch(raceServiceProvider);
       return RaceNotifier(raceService);
     });
 
-// --- Stream Providers ---
 final allRacesStreamProvider = StreamProvider.autoDispose<List<Race>>((ref) {
   ref.watch(raceNotifierProvider);
   return ref.read(raceNotifierProvider.notifier).racesStream();
@@ -341,7 +315,6 @@ final participantRacesNoOrderStreamProvider = StreamProvider.family
           .racesByParticipantWithoutOrder(userId);
     });
 
-// --- Race Details Provider ---
 final raceDetailsProvider = FutureProvider.family.autoDispose<Race?, String>((
   ref,
   raceId,
@@ -356,41 +329,132 @@ final raceDetailsProvider = FutureProvider.family.autoDispose<Race?, String>((
 });
 
 final myRacesProvider = StreamProvider.autoDispose<List<Race>>((ref) {
-  // 1. Observa o provider do usuário atual
   final userAsyncValue = ref.watch(currentUserProvider);
 
-  // 2. Retorna o stream apropriado baseado no estado do usuário
   return userAsyncValue.when(
     data: (user) {
-      // 3. Se o usuário NÃO está logado, retorna um stream com lista vazia
-      if (user == null) {
-        print("[myRacesProvider] Usuário não logado. Retornando stream vazio.");
-        return Stream.value(<Race>[]);
-      }
-      // 4. Se o usuário ESTÁ logado, usa o participantRacesStreamProvider existente!
-      //    O watch aqui garante que se o stream da família emitir um novo valor,
-      //    o myRacesProvider também será reconstruído/reemitirá.
-      print(
-        "[myRacesProvider] Usuário ${user.uid} logado. Observando participantRacesStreamProvider(${user.uid}).",
-      );
-      // Simplesmente delegamos para o provider da família existente.
-      // Riverpod gerencia a assinatura do stream subjacente para nós.
-      // Quando participantRacesStreamProvider(user.uid) emitir, myRacesProvider emitirá.
+      if (user == null) return Stream.value(<Race>[]);
       return ref.watch(participantRacesNoOrderStreamProvider(user.uid).stream);
     },
-    loading: () {
-      // 5. Enquanto o usuário carrega, retorna um stream vazio temporariamente
-      print(
-        "[myRacesProvider] Estado do usuário carregando. Retornando stream vazio.",
-      );
-      return Stream.value(<Race>[]);
-    },
-    error: (error, stackTrace) {
-      // 6. Se houver erro ao carregar o usuário, retorna um stream com erro
-      print(
-        "[myRacesProvider] Erro ao carregar usuário: $error. Retornando stream com erro.",
-      );
-      return Stream.error(error, stackTrace);
-    },
+    loading: () => Stream.value(<Race>[]),
+    error: (error, stackTrace) => Stream.error(error, stackTrace),
   );
+});
+
+const double defaultSearchRadiusKm = 25.0;
+final distanceRadiusProvider = StateProvider<double>(
+  (ref) => defaultSearchRadiusKm,
+);
+
+final nearbyRacesProvider = FutureProvider.autoDispose<List<Race>>((ref) async {
+  final radius = ref.watch(distanceRadiusProvider);
+  final raceService = ref.watch(raceServiceProvider);
+
+  try {
+    final Position? position = await ref.watch(currentLocationProvider.future);
+    if (position == null) return <Race>[];
+    return await raceService.getNearbyRaces(position, radiusInKm: radius);
+  } catch (error) {
+    throw Exception(
+      "Falha ao buscar corridas próximas: ${error.toString().replaceFirst("Exception: ", "")}",
+    );
+  }
+});
+
+final raceFilterProvider = StateProvider<RaceFilterOption>(
+  (ref) => RaceFilterOption.todas,
+);
+final raceSortCriteriaProvider = StateProvider<RaceSortCriteria>(
+  (ref) => RaceSortCriteria.proximidade,
+);
+final sortAscendingProvider = StateProvider<bool>((ref) => true);
+
+final displayedRacesProvider = Provider.autoDispose<AsyncValue<List<Race>>>((
+  ref,
+) {
+  final nearbyRacesAsync = ref.watch(nearbyRacesProvider);
+  final currentLocationAsync = ref.watch(currentLocationProvider);
+  final filterOption = ref.watch(raceFilterProvider);
+  final sortCriteria = ref.watch(raceSortCriteriaProvider);
+  final isAscending = ref.watch(sortAscendingProvider);
+
+  if (nearbyRacesAsync is AsyncLoading ||
+      currentLocationAsync is AsyncLoading) {
+    return const AsyncValue.loading();
+  }
+
+  if (nearbyRacesAsync is AsyncError) {
+    return AsyncError(nearbyRacesAsync.error!, nearbyRacesAsync.stackTrace!);
+  }
+
+  Position? userPosition;
+  if (currentLocationAsync is AsyncData<Position?>) {
+    userPosition = currentLocationAsync.value;
+  } else if (currentLocationAsync is AsyncError &&
+      sortCriteria == RaceSortCriteria.proximidade) {
+    return AsyncError(
+      "Não foi possível ordenar por proximidade: falha ao obter localização.",
+      StackTrace.current,
+    );
+  }
+
+  final races = nearbyRacesAsync.value ?? [];
+  List<Race> filteredRaces = [];
+
+  switch (filterOption) {
+    case RaceFilterOption.publicas:
+      filteredRaces = races.where((race) => !race.isPrivate).toList();
+      break;
+    case RaceFilterOption.privadas:
+      filteredRaces = races.where((race) => race.isPrivate).toList();
+      break;
+    case RaceFilterOption.todas:
+    default:
+      filteredRaces = List.from(races);
+      break;
+  }
+
+  switch (sortCriteria) {
+    case RaceSortCriteria.proximidade:
+      if (userPosition != null) {
+        filteredRaces.sort((a, b) {
+          try {
+            final distA = Geolocator.distanceBetween(
+              userPosition!.latitude,
+              userPosition.longitude,
+              a.startLatitude,
+              a.startLongitude,
+            );
+            final distB = Geolocator.distanceBetween(
+              userPosition.latitude,
+              userPosition.longitude,
+              b.startLatitude,
+              b.startLongitude,
+            );
+            return isAscending
+                ? distA.compareTo(distB)
+                : distB.compareTo(distA);
+          } catch (e) {
+            return 0;
+          }
+        });
+      }
+      break;
+    case RaceSortCriteria.distancia:
+      filteredRaces.sort((a, b) {
+        return isAscending
+            ? a.distance.compareTo(b.distance)
+            : b.distance.compareTo(a.distance);
+      });
+      break;
+    case RaceSortCriteria.data:
+      filteredRaces.sort((a, b) {
+        return isAscending
+            ? a.date.compareTo(b.date)
+            : b.date.compareTo(a.date);
+      });
+      break;
+  }
+
+  return AsyncValue.data(filteredRaces);
 });
