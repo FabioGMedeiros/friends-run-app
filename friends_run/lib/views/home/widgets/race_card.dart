@@ -9,7 +9,7 @@ import 'package:friends_run/models/race/race_model.dart';
 import 'package:friends_run/models/user/app_user.dart';
 import 'package:geolocator/geolocator.dart';
 // --- IMPORT DA TELA DE DETALHES (da versão "nova") ---
-import 'package:friends_run/views/race/race_details_view.dart';
+import 'package:friends_run/views/race/race_details/race_details_view.dart';
 // ----------------------------------------------------
 
 class RaceCard extends ConsumerWidget {
