@@ -179,6 +179,20 @@ class RaceService {
         );
   }
 
+  // Consulta por participante sem ordenar
+  Stream<List<Race>> getRacesByParticipantWithoutOrder(String userId) {
+    return _firestore
+        .collection(_collectionName)
+        .where('participants', arrayContains: userId)
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs
+                  .map((doc) => Race.fromJson(doc.data()..['id'] = doc.id))
+                  .toList(),
+        );
+  }
+
   // Adicionar participante
   Future<void> addParticipant(String raceId, String userId) async {
     try {
