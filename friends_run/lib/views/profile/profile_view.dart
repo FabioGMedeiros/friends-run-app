@@ -2,10 +2,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-// Ajuste os imports conforme sua estrutura de pastas
-// *** Verifique se este import está correto - o nome do arquivo pode ser auth_providers.dart ***
 import 'package:friends_run/core/providers/auth_provider.dart';
-import 'package:friends_run/core/services/auth_service.dart';
 import 'package:friends_run/models/user/app_user.dart';
 import 'package:friends_run/core/utils/colors.dart'; // Supondo que AppColors existe aqui
 import 'package:image_picker/image_picker.dart';
@@ -289,7 +286,8 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
               label: const Text('Tentar Novamente'),
               onPressed: () {
                  debugPrint("--- ProfileView: Botão Tentar Novamente pressionado ---");
-                 ref.refresh(currentUserProvider);
+                 final refreshedUser = ref.refresh(currentUserProvider);
+                 debugPrint("--- ProfileView: currentUserProvider refreshed: $refreshedUser ---");
               }
             ),
           ],
