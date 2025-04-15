@@ -12,6 +12,7 @@ enum RaceActionType {
   leave,    // Para sair da corrida
   request,  // Para solicitar entrada em corrida privada
   approve,  // Para aprovar participante (se houver botão)
+  reject,  // Para rejeitar participante (se houver botão)
   create,   // Para criar corrida
   update,   // Para atualizar corrida
   delete,   // Para deletar corrida
@@ -228,21 +229,50 @@ class RaceNotifier extends StateNotifier<RaceActionState> {
     }
   }
 
-  Future<bool> approveParticipant(String raceId, String userId) async {
-    try {
-      await _raceService.approveParticipant(raceId, userId);
-      return true;
-    } catch (e) {
-      state = state.copyWith(error: "Erro ao aprovar participante: ${e.toString()}");
-      return false;
-    }
-  }
-
   void clearError() {
     if (state.error != null) {
       state = state.copyWith(clearError: true);
     }
   }
+
+  // --- Método para Rejeitar Solicitação ---
+  Future<bool> rejectParticipationRequest(String raceId, String userId) async {
+    // Define estado ANTES da chamada
+    state = state.copyWith(isLoading: true, actionType: RaceActionType.reject, clearError: true);
+    try {
+      // Chama o método do serviço que criamos
+      await _raceService.removePendingParticipant(raceId, userId);
+      // Sucesso: Reseta estado
+      state = state.copyWith(isLoading: false, actionType: RaceActionType.none);
+      return true;
+    } catch (e) {
+      // Erro: Reseta estado e define erro
+      state = state.copyWith(
+          isLoading: false,
+          actionType: RaceActionType.none,
+          error: e.toString().replaceFirst("Exception: ", ""));
+      return false;
+    }
+  }
+
+   // --- Método para Aprovar Solicitação (ajustado para gerenciar estado) ---
+   Future<bool> approveParticipant(String raceId, String userId) async {
+     // Define estado ANTES da chamada
+     state = state.copyWith(isLoading: true, actionType: RaceActionType.approve, clearError: true);
+     try {
+       await _raceService.approveParticipant(raceId, userId);
+       // Sucesso: Reseta estado
+       state = state.copyWith(isLoading: false, actionType: RaceActionType.none);
+       return true;
+     } catch (e) {
+       // Erro: Reseta estado e define erro
+       state = state.copyWith(
+           isLoading: false,
+           actionType: RaceActionType.none,
+           error: e.toString().replaceFirst("Exception: ", ""));
+       return false;
+     }
+   }
 }
 
 //----------------------------------------------------------------------

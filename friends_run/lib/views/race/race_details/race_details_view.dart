@@ -65,38 +65,50 @@ class RaceDetailsView extends ConsumerWidget {
       ),
       body: SafeArea(
         child: raceAsync.when(
-          loading: () => const Center(
-            child: CircularProgressIndicator(color: AppColors.primaryRed),
-          ),
-          error: (error, stack) => Center( // Estado de erro principal
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, color: Colors.redAccent, size: 50),
-                  const SizedBox(height: 16),
-                  Text(
-                    "Erro ao carregar corrida:\n$error",
-                    style: const TextStyle(color: Colors.redAccent, fontSize: 16),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.refresh),
-                    label: const Text("Tentar Novamente"),
-                    onPressed: () => ref.invalidate(raceDetailsProvider(raceId)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryRed,
-                      foregroundColor: AppColors.white,
-                    ),
-                  ),
-                ],
+          loading:
+              () => const Center(
+                child: CircularProgressIndicator(color: AppColors.primaryRed),
               ),
-            ),
-          ),
+          error:
+              (error, stack) => Center(
+                // Estado de erro principal
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        color: Colors.redAccent,
+                        size: 50,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        "Erro ao carregar corrida:\n$error",
+                        style: const TextStyle(
+                          color: Colors.redAccent,
+                          fontSize: 16,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 20),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.refresh),
+                        label: const Text("Tentar Novamente"),
+                        onPressed:
+                            () => ref.invalidate(raceDetailsProvider(raceId)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryRed,
+                          foregroundColor: AppColors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           data: (race) {
-            if (race == null) { // Caso a corrida não exista mais
+            if (race == null) {
+              // Caso a corrida não exista mais
               return const Center(
                 child: Text(
                   "Corrida não encontrada.",
@@ -110,7 +122,12 @@ class RaceDetailsView extends ConsumerWidget {
             // Corpo principal usando os novos componentes
             return SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 80.0), // Padding inferior para o botão flutuante ou fixo
+              padding: const EdgeInsets.fromLTRB(
+                16.0,
+                8.0,
+                16.0,
+                80.0,
+              ), // Padding inferior para o botão flutuante ou fixo
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -133,24 +150,34 @@ class RaceDetailsView extends ConsumerWidget {
                   const SizedBox(height: 24),
 
                   // 4. Mapa
-                  const Text( // Título do Mapa
-                     "Mapa da Rota:",
-                     style: TextStyle(
-                       color: AppColors.white,
-                       fontSize: 18,
-                       fontWeight: FontWeight.w600,
-                     ),
-                   ),
+                  const Text(
+                    // Título do Mapa
+                    "Mapa da Rota:",
+                    style: TextStyle(
+                      color: AppColors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   const SizedBox(height: 10),
                   RaceMapView(race: race),
                   const SizedBox(height: 24),
 
                   // 5. Lista de Participantes
-                  RaceParticipantsList(participants: race.participants, ownerId: race.ownerId),
+                  RaceParticipantsList(
+                    raceId: race.id, // Passa o ID da corrida
+                    isPrivate: race.isPrivate, // Passa se é privada
+                    participants: race.participants,
+                    pendingParticipants:
+                        race.pendingParticipants, // Passa a lista de pendentes
+                    ownerId: race.ownerId,
+                  ),
                   const SizedBox(height: 30), // Espaço antes do botão
-
                   // 6. Botão de Ação
-                  RaceActionButton(race: race, raceId: raceId), // Passa race e raceId
+                  RaceActionButton(
+                    race: race,
+                    raceId: raceId,
+                  ), // Passa race e raceId
                 ],
               ),
             );
