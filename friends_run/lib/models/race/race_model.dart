@@ -1,17 +1,17 @@
-import 'package:cloud_firestore/cloud_firestore.dart'; // Import necessário
-import 'package:flutter/foundation.dart'; // Para listEquals e @immutable (opcional)
-import 'package:intl/intl.dart'; // Para o getter formattedDate
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart'; // Para listEquals e @immutable
+import 'package:intl/intl.dart';
 import 'package:friends_run/models/user/app_user.dart';
 
-// @immutable // Boa prática adicionar
+@immutable
 class Race {
   final String id;
   final String title;
   final double distance;
   final DateTime date;
-  // Estas listas agora conterão AppUsers "parciais" (só com ID) após fromJson
-  final List<AppUser> participants;
-  final List<AppUser> pendingParticipants;
+  final bool isFinished; // Novo campo adicionado
+  final List<AppUser> participants; // Contém AppUsers "parciais" (só ID) após fromJson
+  final List<AppUser> pendingParticipants; // Contém AppUsers "parciais" (só ID) após fromJson
   final double startLatitude;
   final double startLongitude;
   final double endLatitude;
@@ -21,17 +21,17 @@ class Race {
   final String? imageUrl;
   final DateTime createdAt;
   final DateTime updatedAt;
-  // Owner conterá um AppUser "parcial" (só com ID) após fromJson
-  final AppUser owner;
-  final String ownerId; // Mantemos para fácil acesso ao ID
+  final AppUser owner; // Contém AppUser "parcial" (só ID) após fromJson
+  final String ownerId; // Mantido para fácil acesso/query
   final String? groupId;
   final bool isPrivate;
 
-  Race({
+  const Race({
     required this.id,
     required this.title,
     required this.distance,
     required this.date,
+    this.isFinished = false, // Valor padrão aqui
     this.participants = const [],
     this.pendingParticipants = const [],
     required this.startLatitude,
@@ -48,10 +48,8 @@ class Race {
     this.groupId,
     this.isPrivate = false,
   });
-  // O assert foi removido pois owner.uid pode não estar preenchido imediatamente após fromJson
-  // : assert(owner.uid == ownerId, 'ownerId must match owner.uid');
 
-  // Getters (sem alterações)
+  // --- Getters ---
   bool get isPublic => !isPrivate;
   bool get belongsToGroup => groupId != null;
 
@@ -66,23 +64,23 @@ class Race {
   }
 
   String get formattedDate {
-     // Usando intl para formatação mais robusta
-     // Certifique-se de ter o pacote intl: flutter pub add intl
      try {
-       // Adapte o formato conforme necessário
-       return DateFormat('dd/MM/yyyy - HH:mm').format(date);
+       // Adapte o formato 'pt_BR' ou outro conforme necessário
+       final formatter = DateFormat('dd/MM/yyyy - HH:mm', 'pt_BR');
+       return formatter.format(date);
      } catch (e) {
        print("Erro ao formatar data: $e");
        return "Data inválida";
      }
   }
 
-  // copyWith (sem alterações na lógica principal, mas os tipos devem corresponder)
+  // --- Métodos de Manipulação ---
   Race copyWith({
     String? id,
     String? title,
     double? distance,
     DateTime? date,
+    bool? isFinished, // Adicionado
     List<AppUser>? participants,
     List<AppUser>? pendingParticipants,
     double? startLatitude,
@@ -104,6 +102,7 @@ class Race {
       title: title ?? this.title,
       distance: distance ?? this.distance,
       date: date ?? this.date,
+      isFinished: isFinished ?? this.isFinished, // Adicionado
       participants: participants ?? this.participants,
       pendingParticipants: pendingParticipants ?? this.pendingParticipants,
       startLatitude: startLatitude ?? this.startLatitude,
@@ -115,7 +114,6 @@ class Race {
       imageUrl: imageUrl ?? this.imageUrl,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      // Garante consistência entre owner e ownerId se um deles for atualizado
       owner: owner ?? this.owner,
       ownerId: ownerId ?? (owner != null ? owner.uid : this.ownerId),
       groupId: groupId ?? this.groupId,
@@ -123,55 +121,39 @@ class Race {
     );
   }
 
-  // --- fromJson Refatorado ---
   factory Race.fromJson(Map<String, dynamic> json) {
-    // Função auxiliar para converter Timestamp ou String (legado) para DateTime
+    // Função auxiliar segura para converter Timestamp ou String (legado) para DateTime
     DateTime parseDateTime(dynamic value) {
-      if (value is Timestamp) {
-        return value.toDate();
-      } else if (value is String) {
-        try {
-          return DateTime.parse(value); // Tenta parse de String ISO
-        } catch (_) {
-          // Falhou, retorna data atual como fallback
-          print("Alerta: Falha ao fazer parse da String de data '$value'. Usando data atual.");
-          return DateTime.now();
-        }
+      if (value is Timestamp) return value.toDate();
+      if (value is String) {
+        try { return DateTime.parse(value); } catch (_) {}
       }
-      // Tipo inesperado, retorna data atual como fallback
-      print("Alerta: Tipo de data inesperado ($value). Usando data atual.");
+      print("Alerta: Tipo/formato de data inesperado ($value). Usando data atual.");
       return DateTime.now();
     }
 
-    // Função auxiliar para converter lista de IDs (esperado do Firestore) para lista de AppUser parciais
+    // Função auxiliar para converter lista de IDs para lista de AppUser parciais
     List<AppUser> parseIdListToPartialAppUsers(dynamic idListData) {
       if (idListData is List) {
         return idListData
-            .where((id) => id is String && id.isNotEmpty) // Garante que são Strings não vazias
-            .map((id) => AppUser(uid: id, name: '', email: '')) // Cria AppUser só com ID
+            .whereType<String>() // Garante que são Strings
+            .where((id) => id.isNotEmpty)
+            .map((id) => AppUser(uid: id, name: '', email: ''))
             .toList();
       }
-      return []; // Retorna vazio se não for uma lista
+      return [];
     }
 
-    // Lê o ownerId primeiro
     final ownerIdFromJson = json['ownerId'] as String? ?? '';
 
     return Race(
-      // Adiciona o ID do documento que geralmente é passado externamente
-      id: json['id'] as String? ?? '',
+      id: json['id'] as String? ?? '', // ID é geralmente adicionado após leitura do doc
       title: json['title'] as String? ?? 'Sem Título',
       distance: (json['distance'] as num?)?.toDouble() ?? 0.0,
-
-      // Usa a função auxiliar segura para datas
       date: parseDateTime(json['date']),
-      createdAt: parseDateTime(json['createdAt']),
-      updatedAt: parseDateTime(json['updatedAt']),
-
-      // Usa a função auxiliar para IDs de participantes/pendentes
+      isFinished: json['isFinished'] as bool? ?? false, // Adicionado (lê do JSON, default false)
       participants: parseIdListToPartialAppUsers(json['participants']),
       pendingParticipants: parseIdListToPartialAppUsers(json['pendingParticipants']),
-
       startLatitude: (json['startLatitude'] as num?)?.toDouble() ?? 0.0,
       startLongitude: (json['startLongitude'] as num?)?.toDouble() ?? 0.0,
       endLatitude: (json['endLatitude'] as num?)?.toDouble() ?? 0.0,
@@ -179,29 +161,24 @@ class Race {
       startAddress: json['startAddress'] as String? ?? '',
       endAddress: json['endAddress'] as String? ?? '',
       imageUrl: json['imageUrl'] as String?,
-
-      ownerId: ownerIdFromJson, // Usa o ID lido
-      // Cria um AppUser parcial para o owner usando o ID lido
-      owner: AppUser(uid: ownerIdFromJson, name: '', email: ''),
-
+      createdAt: parseDateTime(json['createdAt']),
+      updatedAt: parseDateTime(json['updatedAt']),
+      ownerId: ownerIdFromJson,
+      owner: AppUser(uid: ownerIdFromJson, name: '', email: ''), // Owner "parcial"
       groupId: json['groupId'] as String?,
       isPrivate: json['isPrivate'] as bool? ?? false,
     );
   }
 
-  // --- toJson Refatorado ---
   Map<String, dynamic> toJson() {
     return {
       // 'id' não é incluído, pois é o ID do documento Firestore
       'title': title,
       'distance': distance,
-      // Converte DateTime para Timestamp do Firestore
       'date': Timestamp.fromDate(date),
-      'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': Timestamp.fromDate(updatedAt),
-      // Mapeia listas de AppUser para listas de IDs (strings)
-      'participants': participants.map((user) => user.uid).toList(),
-      'pendingParticipants': pendingParticipants.map((user) => user.uid).toList(),
+      'isFinished': isFinished, // Adicionado
+      'participants': participants.map((user) => user.uid).toList(), // Salva lista de IDs
+      'pendingParticipants': pendingParticipants.map((user) => user.uid).toList(), // Salva lista de IDs
       'startLatitude': startLatitude,
       'startLongitude': startLongitude,
       'endLatitude': endLatitude,
@@ -209,26 +186,28 @@ class Race {
       'startAddress': startAddress,
       'endAddress': endAddress,
       'imageUrl': imageUrl,
-      // Salva apenas o ownerId, não o objeto owner completo
-      'ownerId': ownerId,
+      'createdAt': Timestamp.fromDate(createdAt),
+      'updatedAt': Timestamp.fromDate(updatedAt),
+      'ownerId': ownerId, // Salva apenas o ID do owner
       'groupId': groupId,
       'isPrivate': isPrivate,
     };
   }
 
-  // == e hashCode precisam ser ajustados se a comparação profunda de AppUser não for mais necessária/possível
+  // --- Operadores de Igualdade ---
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
 
-    // Compara apenas os IDs nas listas e o ownerId
+    // Compara IDs dos participantes/pendentes e ownerId, além dos outros campos
     return other is Race &&
         other.id == id &&
         other.title == title &&
         other.distance == distance &&
         other.date == date &&
-        listEquals(other.participants.map((u) => u.uid).toList(), participants.map((u) => u.uid).toList()) && // Compara IDs
-        listEquals(other.pendingParticipants.map((u) => u.uid).toList(), pendingParticipants.map((u) => u.uid).toList()) && // Compara IDs
+        other.isFinished == isFinished && // Adicionado
+        listEquals(other.participants.map((u) => u.uid).toList(), participants.map((u) => u.uid).toList()) &&
+        listEquals(other.pendingParticipants.map((u) => u.uid).toList(), pendingParticipants.map((u) => u.uid).toList()) &&
         other.startLatitude == startLatitude &&
         other.startLongitude == startLongitude &&
         other.endLatitude == endLatitude &&
@@ -238,19 +217,20 @@ class Race {
         other.imageUrl == imageUrl &&
         other.createdAt == createdAt &&
         other.updatedAt == updatedAt &&
-        other.ownerId == ownerId && // Compara ownerId
+        other.ownerId == ownerId &&
         other.groupId == groupId &&
         other.isPrivate == isPrivate;
   }
 
   @override
   int get hashCode {
-     // Gera hash baseado nos IDs das listas e ownerId
-     return Object.hash(
+    // Usa Object.hash para combinar os hashes dos campos relevantes
+    return Object.hash(
       id,
       title,
       distance,
       date,
+      isFinished, // Adicionado
       Object.hashAll(participants.map((u) => u.uid)), // Hash dos IDs
       Object.hashAll(pendingParticipants.map((u) => u.uid)), // Hash dos IDs
       startLatitude,
