@@ -7,7 +7,7 @@ import 'package:friends_run/views/home/widgets/empty_races.dart';
 import 'package:friends_run/views/home/widgets/home_drawer.dart';
 import 'package:friends_run/views/home/widgets/race_card.dart';
 import 'package:friends_run/views/home/widgets/races_error.dart';
-import 'package:friends_run/views/race/create_race_view.dart';
+import 'package:friends_run/views/race/create_race/create_race_view.dart';
 
 class HomeView extends ConsumerWidget {
   const HomeView({super.key});

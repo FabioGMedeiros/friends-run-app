@@ -368,7 +368,7 @@ class RaceParticipantsList extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: pendingParticipants
-                  .map((p) => _buildPendingItem(context, ref, p.uid, currentUserId!))
+                  .map((p) => _buildPendingItem(context, ref, p.uid, currentUserId))
                   .toList(),
             ),
           ),
