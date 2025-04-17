@@ -266,8 +266,11 @@ class _CreateRaceViewState extends ConsumerState<CreateRaceView> {
 
     if (mounted) {
       setState(() {
-        if (isStartPoint) _isGeocodingStart = true;
-        else _isGeocodingEnd = true;
+        if (isStartPoint) {
+          _isGeocodingStart = true;
+        } else {
+          _isGeocodingEnd = true;
+        }
       });
     }
 
@@ -300,8 +303,11 @@ class _CreateRaceViewState extends ConsumerState<CreateRaceView> {
     } finally {
       if (mounted) {
         setState(() {
-          if (isStartPoint) _isGeocodingStart = false;
-          else _isGeocodingEnd = false;
+          if (isStartPoint) {
+            _isGeocodingStart = false;
+          } else {
+            _isGeocodingEnd = false;
+          }
         });
       }
     }

@@ -5,7 +5,6 @@ import 'package:image_picker/image_picker.dart'; // Importado para seleção de 
 import 'package:friends_run/core/providers/auth_provider.dart';
 import 'package:friends_run/core/providers/group_provider.dart';
 import 'package:friends_run/core/utils/colors.dart';
-import 'package:friends_run/core/utils/validationsUtils.dart'; // Validações customizadas (se necessário)
 
 class CreateGroupView extends ConsumerStatefulWidget {
   const CreateGroupView({super.key});
