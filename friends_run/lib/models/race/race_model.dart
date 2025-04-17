@@ -10,8 +10,10 @@ class Race {
   final double distance;
   final DateTime date;
   final bool isFinished; // Novo campo adicionado
-  final List<AppUser> participants; // Contém AppUsers "parciais" (só ID) após fromJson
-  final List<AppUser> pendingParticipants; // Contém AppUsers "parciais" (só ID) após fromJson
+  final List<AppUser>
+  participants; // Contém AppUsers "parciais" (só ID) após fromJson
+  final List<AppUser>
+  pendingParticipants; // Contém AppUsers "parciais" (só ID) após fromJson
   final double startLatitude;
   final double startLongitude;
   final double endLatitude;
@@ -64,14 +66,13 @@ class Race {
   }
 
   String get formattedDate {
-     try {
-       // Adapte o formato 'pt_BR' ou outro conforme necessário
-       final formatter = DateFormat('dd/MM/yyyy - HH:mm', 'pt_BR');
-       return formatter.format(date);
-     } catch (e) {
-       print("Erro ao formatar data: $e");
-       return "Data inválida";
-     }
+    try {
+      final formatter = DateFormat('dd/MM/yyyy - HH:mm');
+      return formatter.format(date);
+    } catch (e) {
+      print("Erro ao formatar data: $e");
+      return "Data inválida";
+    }
   }
 
   // --- Métodos de Manipulação ---
@@ -126,9 +127,13 @@ class Race {
     DateTime parseDateTime(dynamic value) {
       if (value is Timestamp) return value.toDate();
       if (value is String) {
-        try { return DateTime.parse(value); } catch (_) {}
+        try {
+          return DateTime.parse(value);
+        } catch (_) {}
       }
-      print("Alerta: Tipo/formato de data inesperado ($value). Usando data atual.");
+      print(
+        "Alerta: Tipo/formato de data inesperado ($value). Usando data atual.",
+      );
       return DateTime.now();
     }
 
@@ -147,13 +152,19 @@ class Race {
     final ownerIdFromJson = json['ownerId'] as String? ?? '';
 
     return Race(
-      id: json['id'] as String? ?? '', // ID é geralmente adicionado após leitura do doc
+      id:
+          json['id'] as String? ??
+          '', // ID é geralmente adicionado após leitura do doc
       title: json['title'] as String? ?? 'Sem Título',
       distance: (json['distance'] as num?)?.toDouble() ?? 0.0,
       date: parseDateTime(json['date']),
-      isFinished: json['isFinished'] as bool? ?? false, // Adicionado (lê do JSON, default false)
+      isFinished:
+          json['isFinished'] as bool? ??
+          false, // Adicionado (lê do JSON, default false)
       participants: parseIdListToPartialAppUsers(json['participants']),
-      pendingParticipants: parseIdListToPartialAppUsers(json['pendingParticipants']),
+      pendingParticipants: parseIdListToPartialAppUsers(
+        json['pendingParticipants'],
+      ),
       startLatitude: (json['startLatitude'] as num?)?.toDouble() ?? 0.0,
       startLongitude: (json['startLongitude'] as num?)?.toDouble() ?? 0.0,
       endLatitude: (json['endLatitude'] as num?)?.toDouble() ?? 0.0,
@@ -164,7 +175,11 @@ class Race {
       createdAt: parseDateTime(json['createdAt']),
       updatedAt: parseDateTime(json['updatedAt']),
       ownerId: ownerIdFromJson,
-      owner: AppUser(uid: ownerIdFromJson, name: '', email: ''), // Owner "parcial"
+      owner: AppUser(
+        uid: ownerIdFromJson,
+        name: '',
+        email: '',
+      ), // Owner "parcial"
       groupId: json['groupId'] as String?,
       isPrivate: json['isPrivate'] as bool? ?? false,
     );
@@ -177,8 +192,12 @@ class Race {
       'distance': distance,
       'date': Timestamp.fromDate(date),
       'isFinished': isFinished, // Adicionado
-      'participants': participants.map((user) => user.uid).toList(), // Salva lista de IDs
-      'pendingParticipants': pendingParticipants.map((user) => user.uid).toList(), // Salva lista de IDs
+      'participants':
+          participants.map((user) => user.uid).toList(), // Salva lista de IDs
+      'pendingParticipants':
+          pendingParticipants
+              .map((user) => user.uid)
+              .toList(), // Salva lista de IDs
       'startLatitude': startLatitude,
       'startLongitude': startLongitude,
       'endLatitude': endLatitude,
@@ -206,8 +225,14 @@ class Race {
         other.distance == distance &&
         other.date == date &&
         other.isFinished == isFinished && // Adicionado
-        listEquals(other.participants.map((u) => u.uid).toList(), participants.map((u) => u.uid).toList()) &&
-        listEquals(other.pendingParticipants.map((u) => u.uid).toList(), pendingParticipants.map((u) => u.uid).toList()) &&
+        listEquals(
+          other.participants.map((u) => u.uid).toList(),
+          participants.map((u) => u.uid).toList(),
+        ) &&
+        listEquals(
+          other.pendingParticipants.map((u) => u.uid).toList(),
+          pendingParticipants.map((u) => u.uid).toList(),
+        ) &&
         other.startLatitude == startLatitude &&
         other.startLongitude == startLongitude &&
         other.endLatitude == endLatitude &&
