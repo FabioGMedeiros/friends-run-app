@@ -6,17 +6,14 @@ import 'package:cached_network_image/cached_network_image.dart';
 // Models e Providers
 import 'package:friends_run/models/race/race_model.dart';
 import 'package:friends_run/models/group/race_group.dart';
-import 'package:friends_run/models/user/app_user.dart'; // Adicionado do novo código
+// Adicionado do novo código
 import 'package:friends_run/core/providers/race_provider.dart';
 import 'package:friends_run/core/providers/auth_provider.dart';
 import 'package:friends_run/core/providers/group_provider.dart';
-import 'package:friends_run/core/services/group_service.dart'; // Adicionado do novo código
-import 'package:friends_run/core/providers/location_provider.dart'; // Adicionado do novo código (embora não usado diretamente aqui, pode ser dependência)
 
 // Utils e Widgets
 import 'package:friends_run/core/utils/colors.dart';
 import 'package:friends_run/views/home/widgets/race_card.dart';
-// import 'package:Maps_flutter/Maps_flutter.dart'; // Removido - Mapa não é mais exibido aqui
 
 // Provider para buscar as corridas de um grupo específico (igual)
 final groupRacesProvider = StreamProvider.autoDispose
@@ -33,7 +30,6 @@ class GroupDetailsView extends ConsumerWidget {
 
   // --- Helpers de Construção da UI ---
 
-  // Helper _buildInfoRow (Mantido do código antigo)
   Widget _buildInfoRow(
     BuildContext context,
     IconData icon,
@@ -68,9 +64,6 @@ class GroupDetailsView extends ConsumerWidget {
     );
   }
 
-  // Helper _buildMapView (Removido - Conforme código novo)
-
-  // Helper _buildMemberItem (Mantido do código antigo - mais completo)
   Widget _buildMemberItem(
     BuildContext context,
     WidgetRef ref,
@@ -172,11 +165,8 @@ class GroupDetailsView extends ConsumerWidget {
     );
   }
 
-  // --- Helper _buildPendingItem (Adicionado do código novo) ---
-   Widget _buildPendingItem( BuildContext context, WidgetRef ref, String pendingUserId, RaceGroup group) {
-     // Observa o estado de ação global para desabilitar botões durante QUALQUER ação
-     final bool isLoadingAction = ref.watch(raceNotifierProvider).isLoading; // Ou usar um notifier de grupo dedicado
-     // Observa os dados do usuário pendente
+  Widget _buildPendingItem( BuildContext context, WidgetRef ref, String pendingUserId, RaceGroup group) {
+     final bool isLoadingAction = ref.watch(raceNotifierProvider).isLoading;
      final userAsync = ref.watch(userProvider(pendingUserId));
 
      return userAsync.when(
@@ -204,7 +194,7 @@ class GroupDetailsView extends ConsumerWidget {
                       (user.profileImageUrl == null ||
                               user.profileImageUrl!.isEmpty)
                           ? const Icon(
-                            Icons.person_outline, // Ícone diferente para pendente?
+                            Icons.person_outline,
                             size: 18,
                             color: AppColors.greyLight,
                           )
@@ -222,30 +212,26 @@ class GroupDetailsView extends ConsumerWidget {
                     overflow: TextOverflow.ellipsis,
                  ),
                ),
-               // Botão Aceitar
                SizedBox( width: 36, height: 36, child: IconButton(
                    icon: const Icon(Icons.check_circle_outline, color: Colors.greenAccent), iconSize: 22, tooltip: "Aprovar", padding: EdgeInsets.zero,
                    onPressed: isLoadingAction ? null : () async {
                       try {
-                          // Usa o groupServiceProvider importado
                           await ref.read(groupServiceProvider).approveMember(group.id, pendingUserId);
                           if(context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${user.name} aprovado(a)!'), backgroundColor: Colors.green));
-                          ref.invalidate(groupDetailsProvider(group.id)); // Atualiza listas
+                          ref.invalidate(groupDetailsProvider(group.id));
                       } catch (e) {
                           if(context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erro ao aprovar: ${e.toString().replaceFirst("Exception: ", "")}"), backgroundColor: Colors.redAccent));
                       }
                    },
                 )),
                const SizedBox(width: 4),
-               // Botão Rejeitar
                SizedBox( width: 36, height: 36, child: IconButton(
                    icon: const Icon(Icons.cancel_outlined, color: Colors.redAccent), iconSize: 22, tooltip: "Rejeitar", padding: EdgeInsets.zero,
                    onPressed: isLoadingAction ? null : () async {
                        try {
-                            // Usa o groupServiceProvider importado
                            await ref.read(groupServiceProvider).removeOrRejectMember(group.id, pendingUserId, isPending: true);
                            if(context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Solicitação de ${user.name} rejeitada.'), backgroundColor: Colors.orange));
-                           ref.invalidate(groupDetailsProvider(group.id)); // Atualiza listas
+                           ref.invalidate(groupDetailsProvider(group.id));
                        } catch (e) {
                           if(context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erro ao rejeitar: ${e.toString().replaceFirst("Exception: ", "")}"), backgroundColor: Colors.redAccent));
                        }
@@ -282,12 +268,9 @@ class GroupDetailsView extends ConsumerWidget {
      );
    }
 
-
-  // Helper para o botão de Ação do Grupo (Versão do código novo)
   Widget _buildGroupActionButton(BuildContext context, WidgetRef ref, RaceGroup group) {
       final currentUserAsync = ref.watch(currentUserProvider);
-      // Usando loading GERAL. Idealmente teria um state específico para ações de grupo.
-      final bool isLoadingAction = ref.watch(raceNotifierProvider).isLoading; // Pode precisar mudar se tiver groupActionNotifier
+      final bool isLoadingAction = ref.watch(raceNotifierProvider).isLoading;
 
       return currentUserAsync.when(
          data: (currentUser) {
@@ -306,7 +289,6 @@ class GroupDetailsView extends ConsumerWidget {
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     onPressed: () {
-                      // TODO: Navegar para a tela de Login
                        ScaffoldMessenger.of(context).showSnackBar(
                          const SnackBar(content: Text("TODO: Navegar para Login")),
                        );
@@ -324,26 +306,23 @@ class GroupDetailsView extends ConsumerWidget {
              Color buttonColor = AppColors.greyDark;
              IconData? buttonIcon;
              VoidCallback? onPressed;
-             bool canInteract = false; // Flag para saber se o botão deve ser interativo
+             bool canInteract = false;
 
-             // Lógica para definir texto, cor, ícone e ação do botão
              if (isAdmin) {
-                 buttonText = "Gerenciar"; // Alterado pelo novo código
-                 buttonIcon = Icons.settings; // Alterado pelo novo código
-                 buttonColor = AppColors.primaryRed; // Alterado pelo novo código
+                 buttonText = "Gerenciar";
+                 buttonIcon = Icons.settings;
+                 buttonColor = AppColors.primaryRed;
                  onPressed = () {
-                     // TODO: Navegar para tela de gerenciamento de membros/grupo?
                      ScaffoldMessenger.of(context).showSnackBar(
                        const SnackBar(content: Text("Tela de gerenciamento (TODO)")),
                      );
                  };
-                 canInteract = true; // Admin pode ter ações
+                 canInteract = true;
              } else if (isMember) {
                  buttonText = "Sair do Grupo";
                  buttonColor = Colors.redAccent.shade700;
                  buttonIcon = Icons.exit_to_app;
                  onPressed = () async {
-                   // Confirmação antes de sair (lógica do código antigo)
                    bool? confirm = await showDialog<bool>(
                      context: context,
                      builder: (ctx) => AlertDialog(
@@ -360,15 +339,12 @@ class GroupDetailsView extends ConsumerWidget {
                    );
                    if (confirm == true && context.mounted) {
                      try {
-                       // Chama o serviço diretamente (ou via notifier se criado)
                        await ref.read(groupServiceProvider).leaveGroup(group.id, currentUserId);
                        ScaffoldMessenger.of(context).showSnackBar(
                          const SnackBar( content: Text("Você saiu do grupo."), backgroundColor: Colors.blueGrey ),
                        );
-                       ref.invalidate(userGroupsProvider); // Atualiza a lista de grupos do usuário
-                       ref.invalidate(groupDetailsProvider(group.id)); // Atualiza esta tela
-                       // Pode ser necessário voltar para a lista de grupos:
-                       // if(context.mounted) Navigator.pop(context);
+                       ref.invalidate(userGroupsProvider);
+                       ref.invalidate(groupDetailsProvider(group.id));
                      } catch (e) {
                        ScaffoldMessenger.of(context).showSnackBar(
                          SnackBar(
@@ -383,73 +359,76 @@ class GroupDetailsView extends ConsumerWidget {
              } else if (isPending) {
                  buttonText = "Solicitação Enviada";
                  buttonIcon = Icons.hourglass_top;
-                 // Opcional: Botão para cancelar solicitação
-                 // onPressed = () async { ... ref.read(groupServiceProvider).cancelRequest(...) ... };
-                 // canInteract = true; // Habilitaria o botão se tivesse ação de cancelar
-             } else { // Não é membro nem pendente (Visitante)
+             } else {
                  if (group.isPublic) {
-                     buttonText = "Solicitar Entrada";
+                     buttonText = "Entrar no Grupo";
                      buttonColor = AppColors.primaryRed;
-                     buttonIcon = Icons.person_add_alt_1;
+                     buttonIcon = Icons.group_add_outlined;
                      onPressed = () async {
                        try {
-                         // Chama o serviço diretamente (lógica do código antigo)
-                         await ref.read(groupServiceProvider).requestToJoinGroup(group.id, currentUserId);
-                         ScaffoldMessenger.of(context).showSnackBar(
-                           const SnackBar( content: Text('Solicitação enviada!'), backgroundColor: Colors.orangeAccent ),
+                         await ref.read(groupServiceProvider).joinPublicGroup(group.id, currentUserId);
+                         if(context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+                           SnackBar(content: Text('Você entrou no grupo "${group.name}"!'), backgroundColor: Colors.green),
                          );
-                         ref.invalidate(groupDetailsProvider(group.id)); // Atualiza para mostrar como pendente
+                         ref.invalidate(userGroupsProvider);
+                         ref.invalidate(groupDetailsProvider(group.id));
+                         ref.invalidate(allGroupsProvider);
                        } catch (e) {
-                         ScaffoldMessenger.of(context).showSnackBar(
-                           SnackBar(
-                             content: Text("Erro ao solicitar entrada: ${e.toString().replaceFirst("Exception: ", "")}"),
-                             backgroundColor: Colors.redAccent,
-                           ),
+                          if(context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+                           SnackBar(content: Text("Erro ao entrar no grupo: ${e.toString()}"), backgroundColor: Colors.redAccent),
                          );
                        }
                      };
                      canInteract = true;
                  } else {
-                    buttonText = "Grupo Privado";
-                    buttonIcon = Icons.lock;
+                    buttonText = "Solicitar Entrada";
+                    buttonColor = Colors.orange.shade700;
+                    buttonIcon = Icons.vpn_key_outlined;
+                    onPressed = () async {
+                       try {
+                         await ref.read(groupServiceProvider).requestToJoinGroup(group.id, currentUserId);
+                         if(context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+                           const SnackBar( content: Text('Solicitação enviada!'), backgroundColor: Colors.orangeAccent ),
+                         );
+                         ref.invalidate(groupDetailsProvider(group.id));
+                       } catch (e) {
+                         if(context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+                           SnackBar( content: Text("Erro ao solicitar entrada: ${e.toString()}"), backgroundColor: Colors.redAccent ),
+                         );
+                       }
+                     };
+                     canInteract = true;
                  }
              }
 
-             // Construção final do botão
               return SizedBox(
                  width: double.infinity,
                  child: ElevatedButton.icon(
                     icon: isLoadingAction && canInteract
                       ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : (buttonIcon != null ? Icon(buttonIcon, size: 20) : const SizedBox.shrink()), // Garante que icon não é null ou usa SizedBox
+                      : (buttonIcon != null ? Icon(buttonIcon, size: 20) : const SizedBox.shrink()),
                     label: Text(buttonText, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: buttonColor, foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      disabledBackgroundColor: buttonColor.withOpacity(0.5), // Cor desabilitada mais clara
+                      disabledBackgroundColor: buttonColor.withOpacity(0.5),
                       disabledForegroundColor: Colors.white.withOpacity(0.7),
                     ),
-                    // Desabilita se estiver carregando OU se não houver ação interativa definida
                     onPressed: isLoadingAction || !canInteract ? null : onPressed,
                  ),
               );
          },
-         loading: () => const Center(child: SizedBox(height: 50, child: CircularProgressIndicator(color: AppColors.primaryRed))), // Placeholder enquanto usuário carrega
+         loading: () => const Center(child: SizedBox(height: 50, child: CircularProgressIndicator(color: AppColors.primaryRed))),
          error: (e,s) => const Center(child: Text("Erro ao verificar usuário.", style: TextStyle(color: Colors.redAccent))),
       );
    }
 
-
-  // --- Build Principal ---
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Observa detalhes do grupo
     final groupAsync = ref.watch(groupDetailsProvider(groupId));
-    // Observa usuário logado para determinar se é admin (conforme novo código)
     final currentUserId = ref.watch(currentUserProvider).asData?.value?.uid;
 
-    // Listener de erro para ações (Mantido)
     ref.listen<RaceActionState>(raceNotifierProvider, (_, next) {
       if (next.error != null && next.error!.isNotEmpty) {
          ScaffoldMessenger.of(context).showSnackBar(
@@ -459,7 +438,6 @@ class GroupDetailsView extends ConsumerWidget {
            ),
          );
       }
-      // Adicionar listeners para sucesso se necessário
     });
 
     return Scaffold(
@@ -485,7 +463,6 @@ class GroupDetailsView extends ConsumerWidget {
           ),
           onPressed: () => Navigator.pop(context),
         ),
-        // TODO: Adicionar ações de Admin aqui (ex: Editar Grupo, usando o botão 'Gerenciar' ou um ícone extra)
       ),
       body: SafeArea(
         child: groupAsync.when(
@@ -528,10 +505,8 @@ class GroupDetailsView extends ConsumerWidget {
               );
             }
 
-            // Determina se o usuário atual é admin (conforme novo código)
             final bool isCurrentUserAdmin = currentUserId != null && currentUserId == group.adminId;
 
-            // Widget para nome do Admin (Mantido do código antigo)
             final adminNameWidget = Consumer(
               builder: (context, ownerRef, child) {
                 final ownerAsync = ownerRef.watch(userProvider(group.adminId));
@@ -547,7 +522,6 @@ class GroupDetailsView extends ConsumerWidget {
               },
             );
 
-            // Lista de Corridas do Grupo (Mantido)
             final groupRacesAsync = ref.watch(groupRacesProvider(groupId));
 
             return SingleChildScrollView(
@@ -556,16 +530,9 @@ class GroupDetailsView extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // --- Informações do Grupo ---
-                  // Esta Row estava no código antigo. Certifique-se de preenchê-la
-                  // com os widgets corretos (Avatar, Nome, Descrição, etc.)
-                  // usando _buildInfoRow ou widgets diretos.
                   Row(
                      crossAxisAlignment: CrossAxisAlignment.start,
                      children: [
-                        // Exemplo: CircleAvatar para imagem do grupo (se houver)
-                        // CircleAvatar(radius: 30, ...),
-                        // const SizedBox(width: 16),
                         Expanded(
                           child: Column(
                              crossAxisAlignment: CrossAxisAlignment.start,
@@ -576,7 +543,6 @@ class GroupDetailsView extends ConsumerWidget {
                                    Text(group.description!, style: const TextStyle(color: AppColors.greyLight, fontSize: 14)),
                                 ],
                                 const SizedBox(height: 12),
-                                // Usando _buildInfoRow para Admin e Visibilidade
                                 _buildInfoRow(context, Icons.shield_outlined, "Admin", adminNameWidget),
                                 _buildInfoRow(
                                    context,
@@ -584,7 +550,6 @@ class GroupDetailsView extends ConsumerWidget {
                                    "Visibilidade",
                                    Text(group.isPublic ? "Público" : "Privado", style: const TextStyle(color: AppColors.white, fontSize: 15)),
                                 ),
-                                // Adicionar outras informações se necessário (ex: Data de criação)
                              ],
                            ),
                         ),
@@ -592,11 +557,9 @@ class GroupDetailsView extends ConsumerWidget {
                   ),
                   const SizedBox(height: 24),
 
-                  // --- Botão de Ação Principal ---
                   _buildGroupActionButton(context, ref, group),
                   const SizedBox(height: 24),
 
-                  // --- Lista de Membros Confirmados ---
                   Text(
                     "Membros (${group.memberIds.length}):",
                     style: const TextStyle(
@@ -624,26 +587,23 @@ class GroupDetailsView extends ConsumerWidget {
                   ),
                   const SizedBox(height: 24),
 
-                  // --- Seção de Membros Pendentes (APENAS para Admin - Adicionado do código novo) ---
                   if (isCurrentUserAdmin && group.pendingMemberIds.isNotEmpty) ...[
                      Text("Solicitações Pendentes (${group.pendingMemberIds.length}):", style: const TextStyle(color: AppColors.white, fontSize: 18, fontWeight: FontWeight.w600)),
                      const SizedBox(height: 12),
                      Container(
                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                       // Estilo um pouco diferente para destacar
                        decoration: BoxDecoration(
                          color: AppColors.underBackground.withOpacity(0.5),
                          borderRadius: BorderRadius.circular(8),
-                         border: Border.all(color: Colors.orangeAccent.withOpacity(0.5)) // Borda para destaque
+                         border: Border.all(color: Colors.orangeAccent.withOpacity(0.5))
                        ),
                        child: Column(
                          mainAxisSize: MainAxisSize.min,
-                         // Usa o novo helper _buildPendingItem
                          children: group.pendingMemberIds.map((userId) => _buildPendingItem(context, ref, userId, group)).toList(),
                        ),
                      ),
                      const SizedBox(height: 24),
-                  ] else if (isCurrentUserAdmin) ... [ // Se for admin mas não houver pendentes
+                  ] else if (isCurrentUserAdmin) ... [
                       const Text("Solicitações Pendentes:", style: TextStyle(color: AppColors.white, fontSize: 18, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 12),
                       Container(
@@ -661,10 +621,7 @@ class GroupDetailsView extends ConsumerWidget {
                       ),
                       const SizedBox(height: 24),
                   ],
-                  // --- Fim Seção Pendentes ---
 
-
-                  // --- Lista de Corridas do Grupo ---
                   const Text(
                     "Corridas do Grupo:",
                     style: TextStyle(
@@ -691,24 +648,12 @@ class GroupDetailsView extends ConsumerWidget {
                           ),
                         );
                       }
-                      // Usando Column + map é bom para listas não muito grandes que não precisam de virtualização
                       return Column(
                          children: races.map((race) => Padding(
-                              padding: const EdgeInsets.only(bottom: 12.0), // Espaço entre cards
-                              child: RaceCard(race: race), // Reutiliza o RaceCard
+                              padding: const EdgeInsets.only(bottom: 12.0),
+                              child: RaceCard(race: race),
                          )).toList(),
                       );
-                      /* Ou usando ListView.builder se a lista puder ser muito grande:
-                      return ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: races.length,
-                        itemBuilder: (ctx, index) => Padding(
-                           padding: const EdgeInsets.only(bottom: 12.0), // Espaço entre cards
-                           child: RaceCard(race: races[index]),
-                        ),
-                      );
-                      */
                     },
                     loading:
                         () => const Center(
@@ -725,7 +670,7 @@ class GroupDetailsView extends ConsumerWidget {
                            child: Text( "Erro ao carregar corridas: $e", style: const TextStyle(color: Colors.redAccent), textAlign: TextAlign.center ),
                         ),
                   ),
-                  const SizedBox(height: 20), // Espaço extra no final
+                  const SizedBox(height: 20),
                 ],
               ),
             );

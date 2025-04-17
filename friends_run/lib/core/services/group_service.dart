@@ -111,6 +111,42 @@ class GroupService {
 
   // --- Gerenciamento de Membros ---
 
+  Future<void> joinPublicGroup(String groupId, String userId) async {
+    print("[GroupService] Usuário $userId entrando DIRETAMENTE no grupo público $groupId");
+    try {
+      // Verificações importantes antes de atualizar:
+      final groupDocRef = _firestore.collection(_collectionName).doc(groupId);
+      final groupDoc = await groupDocRef.get();
+
+      if (!groupDoc.exists || groupDoc.data() == null) {
+        throw Exception("Grupo não encontrado.");
+      }
+      if (groupDoc.data()?['isPublic'] != true) {
+         throw Exception("Este grupo não é público para entrada direta.");
+      }
+       final groupData = groupDoc.data()!;
+      if (List<String>.from(groupData['memberIds'] ?? []).contains(userId) ||
+          List<String>.from(groupData['pendingMemberIds'] ?? []).contains(userId)) {
+        print("[GroupService] Usuário $userId já é membro ou pendente no grupo $groupId. Nenhuma ação necessária.");
+        // Pode lançar exceção se quiser dar feedback específico na UI
+        // throw Exception("Você já participa ou solicitou entrada neste grupo.");
+        return; // Retorna sem erro se já está relacionado
+      }
+
+      // Adiciona diretamente à lista de membros
+      await groupDocRef.update({
+        'memberIds': FieldValue.arrayUnion([userId]),
+        'updatedAt': Timestamp.now(),
+      });
+       print("[GroupService] Usuário $userId adicionado aos membros do grupo $groupId.");
+
+    } catch (e) {
+      print("[GroupService] Erro ao entrar no grupo público $groupId: $e");
+      // Relança a exceção formatada
+      throw Exception("Falha ao entrar no grupo: ${e.toString().replaceFirst("Exception: ", "")}");
+    }
+  }
+
   Future<void> requestToJoinGroup(String groupId, String userId) async {
     try {
       print("[GroupService] Usuário $userId solicitando entrada no grupo $groupId");
